@@ -168,6 +168,19 @@ reinvented per screen.
   (toggle).
 - On a comment with no replies → no-op.
 
+## Color Scheme
+
+- **Post titles** render in blue — everywhere a title appears: feed/search
+  list rows and the Thread screen's post header.
+- **Usernames** render in a color deterministically derived from a hash of
+  the username, drawn from a fixed palette that excludes green (green is
+  reserved for selection, so no user's color can be confused for "this row
+  is selected").
+- **Selection overrides both:** when a row is the focused cursor, its
+  entire text — title, username, everything — renders green (bold),
+  temporarily overriding the row's normal blue/per-user colors. Colors
+  revert the moment the cursor moves off that row.
+
 ## Comment Tree
 
 **Initial state:** top-level comments are expanded (full text shown)
