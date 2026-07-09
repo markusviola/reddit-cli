@@ -19,7 +19,8 @@ Reddit browser. Auth reuses the same `~/.devvit/token` file the Devvit CLI's
 ## Non-Goals
 
 - Voting/commenting/posting.
-- Image/media rendering (link/image posts show a `[image link]` placeholder).
+- Image/media rendering — see Image Handling for how image posts/comments
+  are represented instead.
 - Multi-account switching.
 - Offline caching or a persistent config file.
 - Any automated retry/backoff/rate-limit framework beyond a status-line
@@ -135,9 +136,8 @@ screen action is enough for a personal read-only browser.
   one subreddit.
 - **GlobalSearch** — text input, results list of posts across all
   subreddits (not restricted to one subreddit). Enter on one → **Thread**.
-- **Thread** — post body (no image rendering — `[image link]` placeholder
-  for link/image posts) + `CommentTree` below it, same ↑/↓/Enter
-  convention.
+- **Thread** — post body (see Image Handling for image/gallery posts) +
+  `CommentTree` below it, same ↑/↓/Enter convention.
 
 All list-bearing screens (feed, subreddit search, joined list, global
 search, comment tree) share one `PostList`/`useListNav` primitive so the
@@ -180,6 +180,24 @@ reinvented per screen.
   entire text — title, username, everything — renders green (bold),
   temporarily overriding the row's normal blue/per-user colors. Colors
   revert the moment the cursor moves off that row.
+
+## Image Handling
+
+Reddit posts and comments can both contain images. Since this app renders
+plain terminal text, no image is ever fetched or displayed — and, more
+importantly, an unhandled image reference in a comment body must not trip
+up the renderer.
+
+- **Posts** with image/gallery media attached (detected via the API's
+  `post_hint`/`is_gallery`/`preview` fields) get a colored **"with
+  image"** tag directly below the title — in every list row (HomeFeed,
+  SubredditFeed, GlobalSearch) *and* on the Thread screen's post header.
+  Tag color: yellow — distinct from blue titles, green selection, and the
+  username hash palette.
+- **Comments** with an inline embedded image (Reddit's inline media
+  syntax in the comment body, tracked via the comment's `media_metadata`)
+  render `[has_image 🖼️]` in place of the image reference within the
+  comment text, instead of attempting to parse or render it.
 
 ## Comment Tree
 
