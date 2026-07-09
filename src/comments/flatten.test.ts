@@ -102,13 +102,10 @@ test('ancestorContinues reflects sibling position at each depth (bob/carol/dave 
   const bob = rows.find((row) => row.id === 'bob');
   const carol = rows.find((row) => row.id === 'carol');
   const dave = rows.find((row) => row.id === 'dave');
-  // bob is not the last top-level sibling (erin follows) -> depth-0 column continues
   assert.equal(bob?.isLastSibling, false);
   assert.deepEqual(bob?.ancestorContinues, []);
-  // carol is not the last of bob's replies (dave follows) -> depth-1 continues too
   assert.equal(carol?.isLastSibling, false);
   assert.deepEqual(carol?.ancestorContinues, [true]);
-  // dave IS the last of bob's replies
   assert.equal(dave?.isLastSibling, true);
   assert.deepEqual(dave?.ancestorContinues, [true]);
 });
