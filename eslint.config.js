@@ -25,4 +25,10 @@ export default defineConfig([
     },
     ignores: ['**/node_modules/**', '**/dist/**'],
   },
+  {
+    files: ['src/**/*.test.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'off',
+    },
+  },
 ]);
