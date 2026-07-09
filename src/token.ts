@@ -29,15 +29,25 @@ function asNumber(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+function decodeInner(encoded: string): Record<string, unknown> {
+  try {
+    const decoded: unknown = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+    return isRecord(decoded) ? decoded : {};
+  } catch {
+    return {};
+  }
+}
+
 export function parseToken(raw: string): DevvitToken {
-  const parsed: unknown = JSON.parse(raw);
-  const json = isRecord(parsed) ? parsed : {};
+  const outer: unknown = JSON.parse(raw);
+  const outerRecord = isRecord(outer) ? outer : {};
+  const inner = decodeInner(asString(outerRecord.token));
   return {
-    accessToken: asString(json.accessToken),
-    refreshToken: asString(json.refreshToken),
-    expiresAt: asNumber(json.expiresAt),
-    scope: asString(json.scope),
-    tokenType: asString(json.tokenType),
+    accessToken: asString(inner.accessToken),
+    refreshToken: asString(inner.refreshToken),
+    expiresAt: asNumber(inner.expiresAt),
+    scope: asString(inner.scope),
+    tokenType: asString(inner.tokenType),
   };
 }
 
