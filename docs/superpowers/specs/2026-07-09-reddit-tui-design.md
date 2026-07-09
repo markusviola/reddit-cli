@@ -189,11 +189,13 @@ importantly, an unhandled image reference in a comment body must not trip
 up the renderer.
 
 - **Posts** with image/gallery media attached (detected via the API's
-  `post_hint`/`is_gallery`/`preview` fields) get a colored **"with
-  image"** tag directly below the title — in every list row (HomeFeed,
-  SubredditFeed, GlobalSearch) *and* on the Thread screen's post header.
-  Tag color: yellow — distinct from blue titles, green selection, and the
-  username hash palette.
+  `post_hint`/`is_gallery`/`preview` fields) get a **"with image"** tag
+  directly below the title — in every list row (HomeFeed, SubredditFeed,
+  GlobalSearch) *and* on the Thread screen's post header. Rendered as an
+  actual tag/badge — yellow background with black text — not colored text
+  on the default background, so it reads as a label rather than as part
+  of the title's own color language (blue titles, green selection, the
+  username hash palette).
 - **Comments** with an inline embedded image (Reddit's inline media
   syntax in the comment body, tracked via the comment's `media_metadata`)
   render `[has_image 🖼️]` in place of the image reference within the
