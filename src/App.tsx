@@ -5,6 +5,7 @@ import { NavProvider, useNav } from './nav/stack';
 import { MainMenu } from './screens/MainMenu';
 import { FeedScreen } from './screens/FeedScreen';
 import { SubredditSearchScreen } from './screens/SubredditSearchScreen';
+import { JoinedSubredditsScreen } from './screens/JoinedSubredditsScreen';
 
 export function App(): React.ReactElement {
   return (
@@ -23,6 +24,8 @@ function ScreenSwitch(): React.ReactElement {
       return <FeedScreen subreddit={frame.subreddit} />;
     case 'SubredditSearch':
       return <SubredditSearchScreen />;
+    case 'JoinedSubreddits':
+      return <JoinedSubredditsScreen />;
     default:
       return <Text>Coming soon: {frame.screen} (press Backspace to go back)</Text>;
   }
