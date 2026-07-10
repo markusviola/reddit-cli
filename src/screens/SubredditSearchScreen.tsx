@@ -66,7 +66,9 @@ export function SubredditSearchScreen(): React.ReactElement {
             <SubredditList
               subreddits={subreddits}
               onSelect={(subreddit) => push({ screen: 'Feed', subreddit: subreddit.name })}
-              onReachEnd={() => runSearch(submittedQuery, after)}
+              onReachEnd={() => {
+                if (after !== null) runSearch(submittedQuery, after);
+              }}
               emptyMessage="No subreddits found."
             />
           )}

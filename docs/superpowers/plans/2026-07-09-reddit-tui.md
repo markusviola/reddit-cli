@@ -2300,7 +2300,9 @@ export function SubredditSearchScreen(): React.ReactElement {
             <SubredditList
               subreddits={subreddits}
               onSelect={(subreddit) => push({ screen: 'Feed', subreddit: subreddit.name })}
-              onReachEnd={() => runSearch(submittedQuery, after)}
+              onReachEnd={() => {
+                if (after !== null) runSearch(submittedQuery, after);
+              }}
               emptyMessage="No subreddits found."
             />
           )}
@@ -2310,6 +2312,8 @@ export function SubredditSearchScreen(): React.ReactElement {
   );
 }
 ```
+
+> **Why `onReachEnd` guards `after !== null`:** without this guard, once results are exhausted (`after` becomes `null`), `useListNav`'s reach-end effect keeps firing on every re-render while the cursor sits on the only/last item, and `runSearch(submittedQuery, null)` would be misread as "fetch page 1" (since `null` is also the initial-fetch sentinel) rather than "there is no next page" — causing a silent, repeated re-fetch loop against Reddit's API. `FeedScreen`'s `loadMore` (Task 11) already has this guard (`if (after === null) return;`); this screen needs the same protection at its `onReachEnd` call site. This is most visible with very small result sets (e.g. exactly one match), so it's easy to miss if verification only tries queries with many results — test a query with very few results too.
 
 - [ ] **Step 2: Wire into `src/App.tsx`**
 
@@ -2363,6 +2367,7 @@ Expected:
 - Scrolling past the last result auto-loads more.
 - From the results view, Backspace returns to the query input with the previous query text still shown (not cleared).
 - From the query input with an EMPTY field, Backspace returns to MainMenu.
+- Also try a query likely to return very few results (e.g. a narrow/uncommon term). Confirm the results list settles and does NOT keep silently re-fetching — this is exactly the kind of edge case a small-result-set query surfaces that a many-results query won't.
 
 Ctrl+C twice to exit.
 
@@ -2879,7 +2884,9 @@ export function GlobalSearchScreen(): React.ReactElement {
             <PostList
               posts={posts}
               onSelect={(post) => push({ screen: 'Thread', subreddit: post.subreddit, postId: post.id })}
-              onReachEnd={() => runSearch(submittedQuery, after)}
+              onReachEnd={() => {
+                if (after !== null) runSearch(submittedQuery, after);
+              }}
               emptyMessage="No posts found."
             />
           )}
