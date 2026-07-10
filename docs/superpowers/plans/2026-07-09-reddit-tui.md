@@ -290,6 +290,8 @@ git commit -m "Strip Devvit web-app scaffolding, rewrite project config for a pl
 **Interfaces:**
 - Produces: `DevvitToken` type (`{ accessToken, refreshToken, expiresAt, scope, tokenType }`), `TokenExpiredError` class, `parseToken(raw: string): DevvitToken`, `checkExpiry(token: DevvitToken, now: number): void` (throws `TokenExpiredError` if `token.expiresAt <= now`), `loadToken(now: number): DevvitToken` (reads `~/.devvit/token`, parses, checks expiry, returns). Every later task that talks to Reddit calls `loadToken`.
 
+> **On-disk shape of `~/.devvit/token` (verified against the real file — this is not a guess):** the file's top level is `{ "token": "<base64url-encoded JSON>", "copyPaste": boolean }`. The actual credentials live one level deeper: base64url-decoding the `token` string yields `{ accessToken, refreshToken, expiresAt, scope, tokenType }` — that inner object is what `parseToken` must extract. `parseToken` therefore does two decode steps: parse the outer JSON, then base64url-decode and parse the `token` field's value.
+
 - [ ] **Step 1: Write the failing tests**
 
 ```ts
@@ -298,8 +300,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseToken, checkExpiry, TokenExpiredError } from './token';
 
-test('parseToken extracts all fields from a raw JSON string', () => {
-  const raw = JSON.stringify({
+function encodeToken(fields: Record<string, unknown>): string {
+  const inner = Buffer.from(JSON.stringify(fields), 'utf8').toString('base64url');
+  return JSON.stringify({ token: inner, copyPaste: false });
+}
+
+test('parseToken extracts all fields from the on-disk shape (base64url JSON under "token")', () => {
+  const raw = encodeToken({
     accessToken: 'abc',
     refreshToken: 'def',
     expiresAt: 1234,
@@ -317,7 +324,18 @@ test('parseToken extracts all fields from a raw JSON string', () => {
 });
 
 test('parseToken coerces missing/wrong-typed fields to safe defaults', () => {
-  const token = parseToken('{}');
+  const token = parseToken(encodeToken({}));
+  assert.deepEqual(token, {
+    accessToken: '',
+    refreshToken: '',
+    expiresAt: 0,
+    scope: '',
+    tokenType: '',
+  });
+});
+
+test('parseToken defaults safely when the outer "token" field is missing or not valid base64url JSON', () => {
+  const token = parseToken(JSON.stringify({ copyPaste: false }));
   assert.deepEqual(token, {
     accessToken: '',
     refreshToken: '',
@@ -329,21 +347,21 @@ test('parseToken coerces missing/wrong-typed fields to safe defaults', () => {
 
 test('checkExpiry does not throw when the token has not expired', () => {
   const token = parseToken(
-    JSON.stringify({ accessToken: 'a', refreshToken: 'b', expiresAt: 2000, scope: '*', tokenType: 'bearer' })
+    encodeToken({ accessToken: 'a', refreshToken: 'b', expiresAt: 2000, scope: '*', tokenType: 'bearer' })
   );
   assert.doesNotThrow(() => checkExpiry(token, 1000));
 });
 
 test('checkExpiry throws TokenExpiredError when the token has expired', () => {
   const token = parseToken(
-    JSON.stringify({ accessToken: 'a', refreshToken: 'b', expiresAt: 1000, scope: '*', tokenType: 'bearer' })
+    encodeToken({ accessToken: 'a', refreshToken: 'b', expiresAt: 1000, scope: '*', tokenType: 'bearer' })
   );
   assert.throws(() => checkExpiry(token, 2000), TokenExpiredError);
 });
 
 test('checkExpiry treats expiresAt exactly equal to now as expired', () => {
   const token = parseToken(
-    JSON.stringify({ accessToken: 'a', refreshToken: 'b', expiresAt: 1000, scope: '*', tokenType: 'bearer' })
+    encodeToken({ accessToken: 'a', refreshToken: 'b', expiresAt: 1000, scope: '*', tokenType: 'bearer' })
   );
   assert.throws(() => checkExpiry(token, 1000), TokenExpiredError);
 });
@@ -389,15 +407,25 @@ function asNumber(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+function decodeInner(encoded: string): Record<string, unknown> {
+  try {
+    const decoded: unknown = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+    return isRecord(decoded) ? decoded : {};
+  } catch {
+    return {};
+  }
+}
+
 export function parseToken(raw: string): DevvitToken {
-  const parsed: unknown = JSON.parse(raw);
-  const json = isRecord(parsed) ? parsed : {};
+  const outer: unknown = JSON.parse(raw);
+  const outerRecord = isRecord(outer) ? outer : {};
+  const inner = decodeInner(asString(outerRecord.token));
   return {
-    accessToken: asString(json.accessToken),
-    refreshToken: asString(json.refreshToken),
-    expiresAt: asNumber(json.expiresAt),
-    scope: asString(json.scope),
-    tokenType: asString(json.tokenType),
+    accessToken: asString(inner.accessToken),
+    refreshToken: asString(inner.refreshToken),
+    expiresAt: asNumber(inner.expiresAt),
+    scope: asString(inner.scope),
+    tokenType: asString(inner.tokenType),
   };
 }
 
@@ -419,7 +447,7 @@ export function loadToken(now: number): DevvitToken {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `node --import tsx --test src/token.test.ts`
-Expected: PASS, 5 tests.
+Expected: PASS, 6 tests.
 
 - [ ] **Step 5: Type-check and commit**
 
@@ -1767,16 +1795,24 @@ export function MainMenu(): React.ReactElement {
     <Box flexDirection="column">
       <Text bold>iudex-cli — Reddit Browser</Text>
       <Box marginTop={1} flexDirection="column">
-        {items.map((item, index) => (
-          <Text key={item.label} color={index === selectedIndex ? 'green' : undefined} bold={index === selectedIndex}>
-            {item.label}
-          </Text>
-        ))}
+        {items.map((item, index) =>
+          index === selectedIndex ? (
+            <Text key={item.label} color="green" bold>
+              {item.label}
+            </Text>
+          ) : (
+            <Text key={item.label}>{item.label}</Text>
+          )
+        )}
       </Box>
     </Box>
   );
 }
 ```
+
+> **Note:** Ink's `Text` `color` prop has no `| undefined` in its type, so under this project's `exactOptionalPropertyTypes: true` an explicit `color={undefined}` is a type error — the prop must be omitted entirely, not set to `undefined`. Hence the two-branch ternary here (and everywhere else a "selected vs. not" color choice appears) instead of `color={selected ? 'green' : undefined}`.
+>
+> **Also note (`cli.tsx`):** `render(<App />, { exitOnCtrlC: false })` — Ink's `render()` defaults to `exitOnCtrlC: true`, which would exit the process on the very first Ctrl+C, bypassing `NavProvider`'s own double-press-to-exit handler entirely. Passing `exitOnCtrlC: false` is required for the Global Constraints' "Ctrl+C twice" behavior to work at all. `cli.tsx` also drops the unused `import React from 'react'` — nothing in that file references `React` by name (unlike `App.tsx`/screens, which return `React.ReactElement`).
 
 - [ ] **Step 2: Write `src/App.tsx`**
 
@@ -1811,7 +1847,6 @@ function ScreenSwitch(): React.ReactElement {
 ```tsx
 #!/usr/bin/env node
 // src/cli.tsx
-import React from 'react';
 import { render } from 'ink';
 import { loadToken } from './token';
 import { App } from './App';
@@ -1825,7 +1860,7 @@ function main(): void {
     process.exitCode = 1;
     return;
   }
-  render(<App />);
+  render(<App />, { exitOnCtrlC: false });
 }
 
 main();
@@ -1920,9 +1955,15 @@ export function PostList({ posts, onSelect, onReachEnd, emptyMessage }: PostList
               {post.title}
             </Text>
             {post.hasImage ? <ImageTag /> : null}
-            <Text color={selected ? 'green' : undefined} dimColor={!selected} bold={selected}>
-              {`r/${post.subreddit} · u/${post.author} · ${post.score} pts · ${post.numComments} comments`}
-            </Text>
+            {selected ? (
+              <Text color="green" bold>
+                {`r/${post.subreddit} · u/${post.author} · ${post.score} pts · ${post.numComments} comments`}
+              </Text>
+            ) : (
+              <Text dimColor>
+                {`r/${post.subreddit} · u/${post.author} · ${post.score} pts · ${post.numComments} comments`}
+              </Text>
+            )}
           </Box>
         );
       })}
@@ -1968,9 +2009,15 @@ export function SubredditList({
             <Text color={selected ? 'green' : 'blue'} bold={selected}>
               {`r/${subreddit.name}`}
             </Text>
-            <Text color={selected ? 'green' : undefined} dimColor={!selected} bold={selected}>
-              {`${subreddit.subscribers.toLocaleString()} subscribers · ${subreddit.title}`}
-            </Text>
+            {selected ? (
+              <Text color="green" bold>
+                {`${subreddit.subscribers.toLocaleString()} subscribers · ${subreddit.title}`}
+              </Text>
+            ) : (
+              <Text dimColor>
+                {`${subreddit.subscribers.toLocaleString()} subscribers · ${subreddit.title}`}
+              </Text>
+            )}
           </Box>
         );
       })}
@@ -1978,6 +2025,8 @@ export function SubredditList({
   );
 }
 ```
+
+> **Note:** both components use a `selected ? <Text color="green" bold>...</Text> : <Text dimColor>...</Text>` branch instead of `color={selected ? 'green' : undefined}` — Ink's `Text.color` has no `| undefined` in its type, so under `exactOptionalPropertyTypes: true` an explicit `color={undefined}` is a type error; the prop must be omitted entirely rather than set to `undefined`.
 
 - [ ] **Step 4: Type-check and lint**
 
@@ -2490,24 +2539,25 @@ export function CommentTree({ comments, onExpandMore }: CommentTreeProps): React
   );
 }
 
+function RowText({ selected, children }: { selected: boolean; children: React.ReactNode }): React.ReactElement {
+  return selected ? (
+    <Text color="green" bold>
+      {children}
+    </Text>
+  ) : (
+    <Text>{children}</Text>
+  );
+}
+
 function CommentRowView({ row, selected }: { row: CommentRow; selected: boolean }): React.ReactElement {
   const prefix = branchPrefix(row);
-  const rowColor = selected ? 'green' : undefined;
 
   if (row.content.type === 'collapsedReplies') {
-    return (
-      <Text color={rowColor} bold={selected}>
-        {`${prefix}${row.content.replyCount} replies ▸`}
-      </Text>
-    );
+    return <RowText selected={selected}>{`${prefix}${row.content.replyCount} replies ▸`}</RowText>;
   }
 
   if (row.content.type === 'more') {
-    return (
-      <Text color={rowColor} bold={selected}>
-        {`${prefix}${row.content.count} more replies ▸`}
-      </Text>
-    );
+    return <RowText selected={selected}>{`${prefix}${row.content.count} more replies ▸`}</RowText>;
   }
 
   const bodyPrefix = continuationPrefix(row, row.content.continuesBelow);
@@ -2516,25 +2566,23 @@ function CommentRowView({ row, selected }: { row: CommentRow; selected: boolean 
   return (
     <Box flexDirection="column" marginBottom={row.depth === 0 ? 1 : 0}>
       <Box>
-        <Text color={rowColor} bold={selected}>
-          {prefix}
-        </Text>
+        <RowText selected={selected}>{prefix}</RowText>
         <Text color={authorColor} bold={selected}>
           {`u/${row.content.author}`}
         </Text>
-        <Text color={rowColor} bold={selected}>
-          {` (${row.content.score})`}
-        </Text>
+        <RowText selected={selected}>{` (${row.content.score})`}</RowText>
       </Box>
-      <Text color={rowColor} bold={selected}>
+      <RowText selected={selected}>
         {bodyPrefix}
         {row.content.body}
-      </Text>
+      </RowText>
     </Box>
   );
 }
 ```
 
+> **Note:** `RowText` is a small local helper that avoids `color={selected ? 'green' : undefined}` — Ink's `Text.color` has no `| undefined` in its type, so under `exactOptionalPropertyTypes: true` an explicit `color={undefined}` is a type error; the prop must be omitted entirely rather than set to `undefined`. `authorColor` doesn't need this treatment since `usernameColor(...)` always returns a real color string, never `undefined`.
+>
 > Note on spacing: the design spec calls for one blank line between top-level comment blocks, with replies staying tight underneath their parent. `marginBottom={row.depth === 0 ? 1 : 0}` on the `comment` variant achieves exactly that — only depth-0 rows get the trailing blank line.
 
 - [ ] **Step 2: Type-check and lint**
