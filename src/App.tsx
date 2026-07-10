@@ -6,6 +6,7 @@ import { MainMenu } from './screens/MainMenu';
 import { FeedScreen } from './screens/FeedScreen';
 import { SubredditSearchScreen } from './screens/SubredditSearchScreen';
 import { JoinedSubredditsScreen } from './screens/JoinedSubredditsScreen';
+import { ThreadScreen } from './screens/ThreadScreen';
 
 export function App(): React.ReactElement {
   return (
@@ -26,6 +27,8 @@ function ScreenSwitch(): React.ReactElement {
       return <SubredditSearchScreen />;
     case 'JoinedSubreddits':
       return <JoinedSubredditsScreen />;
+    case 'Thread':
+      return <ThreadScreen subreddit={frame.subreddit} postId={frame.postId} />;
     default:
       return <Text>Coming soon: {frame.screen} (press Backspace to go back)</Text>;
   }
