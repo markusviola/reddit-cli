@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { useListNav } from '../hooks/useListNav';
 import { ImageTag } from './ImageTag';
+import { RowText } from './RowText';
 import type { RedditPost } from '../reddit/types';
 
 export type PostListProps = {
@@ -28,15 +29,9 @@ export function PostList({ posts, onSelect, onReachEnd, emptyMessage }: PostList
               {post.title}
             </Text>
             {post.hasImage ? <ImageTag /> : null}
-            {selected ? (
-              <Text color="green" bold>
-                {`r/${post.subreddit} · u/${post.author} · ${post.score} pts · ${post.numComments} comments`}
-              </Text>
-            ) : (
-              <Text dimColor>
-                {`r/${post.subreddit} · u/${post.author} · ${post.score} pts · ${post.numComments} comments`}
-              </Text>
-            )}
+            <RowText selected={selected} dim>
+              {`r/${post.subreddit} · u/${post.author} · ${post.score} pts · ${post.numComments} comments`}
+            </RowText>
           </Box>
         );
       })}

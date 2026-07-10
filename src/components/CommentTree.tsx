@@ -4,6 +4,7 @@ import { flattenVisibleComments, nearestAnchorId } from '../comments/flatten';
 import { branchPrefix, continuationPrefix } from '../comments/render';
 import { usernameColor } from '../colors';
 import { useListNav } from '../hooks/useListNav';
+import { RowText } from './RowText';
 import type { CommentRow } from '../comments/flatten';
 import type { RedditThing } from '../reddit/types';
 
@@ -59,16 +60,6 @@ export function CommentTree({ comments, onExpandMore }: CommentTreeProps): React
         <CommentRowView key={row.id} row={row} selected={index === selectedIndex} />
       ))}
     </Box>
-  );
-}
-
-function RowText({ selected, children }: { selected: boolean; children: React.ReactNode }): React.ReactElement {
-  return selected ? (
-    <Text color="green" bold>
-      {children}
-    </Text>
-  ) : (
-    <Text>{children}</Text>
   );
 }
 

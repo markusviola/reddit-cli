@@ -26,13 +26,7 @@ export function FeedScreen({ subreddit }: FeedScreenProps): React.ReactElement {
 
   const sort = SORTS[sortIndex] ?? 'hot';
   const feedKey = `${subreddit ?? ''}:${sort}`;
-  const [lastFeedKey, setLastFeedKey] = useState(feedKey);
   const feedKeyRef = useRef(feedKey);
-
-  if (lastFeedKey !== feedKey) {
-    setLastFeedKey(feedKey);
-    setStatus('loading');
-  }
 
   useEffect(() => {
     feedKeyRef.current = feedKey;
@@ -59,6 +53,7 @@ export function FeedScreen({ subreddit }: FeedScreenProps): React.ReactElement {
 
   useInput((input) => {
     if (input === 's') {
+      setStatus('loading');
       setSortIndex((index) => (index + 1) % SORTS.length);
     }
   });

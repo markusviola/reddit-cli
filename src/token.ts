@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { asRecord, asString, asNumber } from './reddit/parse';
 
 export type DevvitToken = {
   accessToken: string;
@@ -17,22 +18,10 @@ export class TokenExpiredError extends Error {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
-
-function asNumber(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-}
-
 function decodeInner(encoded: string): Record<string, unknown> {
   try {
     const decoded: unknown = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
-    return isRecord(decoded) ? decoded : {};
+    return asRecord(decoded);
   } catch {
     return {};
   }
@@ -40,7 +29,7 @@ function decodeInner(encoded: string): Record<string, unknown> {
 
 export function parseToken(raw: string): DevvitToken {
   const outer: unknown = JSON.parse(raw);
-  const outerRecord = isRecord(outer) ? outer : {};
+  const outerRecord = asRecord(outer);
   const inner = decodeInner(asString(outerRecord.token));
   return {
     accessToken: asString(inner.accessToken),
@@ -57,10 +46,16 @@ export function checkExpiry(token: DevvitToken, now: number): void {
   }
 }
 
+let cachedToken: DevvitToken | null = null;
+
 export function loadToken(now: number): DevvitToken {
+  if (cachedToken !== null && cachedToken.expiresAt > now) {
+    return cachedToken;
+  }
   const tokenPath = join(homedir(), '.devvit', 'token');
   const raw = readFileSync(tokenPath, 'utf8');
   const token = parseToken(raw);
   checkExpiry(token, now);
+  cachedToken = token;
   return token;
 }

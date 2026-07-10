@@ -22,7 +22,7 @@ function ScreenSwitch(): React.ReactElement {
     case 'MainMenu':
       return <MainMenu />;
     case 'Feed':
-      return <FeedScreen subreddit={frame.subreddit} />;
+      return <FeedScreen key={frame.subreddit ?? ''} subreddit={frame.subreddit} />;
     case 'SubredditSearch':
       return <SubredditSearchScreen />;
     case 'JoinedSubreddits':

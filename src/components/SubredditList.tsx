@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { useListNav } from '../hooks/useListNav';
+import { RowText } from './RowText';
 import type { RedditSubreddit } from '../reddit/types';
 
 export type SubredditListProps = {
@@ -31,15 +32,9 @@ export function SubredditList({
             <Text color={selected ? 'green' : 'blue'} bold={selected}>
               {`r/${subreddit.name}`}
             </Text>
-            {selected ? (
-              <Text color="green" bold>
-                {`${subreddit.subscribers.toLocaleString()} subscribers · ${subreddit.title}`}
-              </Text>
-            ) : (
-              <Text dimColor>
-                {`${subreddit.subscribers.toLocaleString()} subscribers · ${subreddit.title}`}
-              </Text>
-            )}
+            <RowText selected={selected} dim>
+              {`${subreddit.subscribers.toLocaleString()} subscribers · ${subreddit.title}`}
+            </RowText>
           </Box>
         );
       })}
