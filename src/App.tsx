@@ -1,11 +1,11 @@
 // src/App.tsx
 import React from 'react';
-import { Text } from 'ink';
 import { NavProvider, useNav } from './nav/stack';
 import { MainMenu } from './screens/MainMenu';
 import { FeedScreen } from './screens/FeedScreen';
 import { SubredditSearchScreen } from './screens/SubredditSearchScreen';
 import { JoinedSubredditsScreen } from './screens/JoinedSubredditsScreen';
+import { GlobalSearchScreen } from './screens/GlobalSearchScreen';
 import { ThreadScreen } from './screens/ThreadScreen';
 
 export function App(): React.ReactElement {
@@ -27,9 +27,13 @@ function ScreenSwitch(): React.ReactElement {
       return <SubredditSearchScreen />;
     case 'JoinedSubreddits':
       return <JoinedSubredditsScreen />;
+    case 'GlobalSearch':
+      return <GlobalSearchScreen />;
     case 'Thread':
       return <ThreadScreen subreddit={frame.subreddit} postId={frame.postId} />;
-    default:
-      return <Text>Coming soon: {frame.screen} (press Backspace to go back)</Text>;
+    default: {
+      const exhaustiveCheck: never = frame;
+      throw new Error(`Unhandled screen: ${JSON.stringify(exhaustiveCheck)}`);
+    }
   }
 }
