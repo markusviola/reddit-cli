@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useReducer, useRef } from 'react';
 import { useInput, useApp } from 'ink';
 import { stackReducer } from './stackReducer';
 import type { StackAction } from './stackReducer';
@@ -15,6 +15,7 @@ export type NavContextValue = {
   frame: Frame;
   push: (frame: Frame) => void;
   pop: () => void;
+  setBackspaceConsumed: (consumed: boolean) => void;
 };
 
 const NavContext = createContext<NavContextValue | null>(null);
@@ -28,6 +29,7 @@ export function NavProvider({ children }: { children: React.ReactNode }): React.
   );
   const { exit } = useApp();
   const lastCtrlCAt = useRef(0);
+  const backspaceConsumedRef = useRef(false);
 
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
@@ -40,17 +42,26 @@ export function NavProvider({ children }: { children: React.ReactNode }): React.
       return;
     }
     if (key.backspace || key.delete) {
-      dispatch({ type: 'pop' });
+      if (!backspaceConsumedRef.current) {
+        dispatch({ type: 'pop' });
+      }
     }
   });
+
+  const push = useCallback((frame: Frame) => dispatch({ type: 'push', frame }), []);
+  const pop = useCallback(() => dispatch({ type: 'pop' }), []);
+  const setBackspaceConsumed = useCallback((consumed: boolean) => {
+    backspaceConsumedRef.current = consumed;
+  }, []);
 
   const currentFrame = stack[stack.length - 1];
   if (currentFrame === undefined) throw new Error('unreachable: stack is never empty');
 
   const value: NavContextValue = {
     frame: currentFrame,
-    push: (frame) => dispatch({ type: 'push', frame }),
-    pop: () => dispatch({ type: 'pop' }),
+    push,
+    pop,
+    setBackspaceConsumed,
   };
 
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>;

@@ -1,6 +1,6 @@
 // src/screens/SubredditSearchScreen.tsx
-import React, { useState } from 'react';
-import { Box, Text } from 'ink';
+import React, { useEffect, useState } from 'react';
+import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { useNav } from '../nav/stack';
 import { SubredditList } from '../components/SubredditList';
@@ -8,12 +8,23 @@ import { searchSubreddits } from '../reddit/client';
 import type { RedditSubreddit } from '../reddit/types';
 
 export function SubredditSearchScreen(): React.ReactElement {
-  const { push } = useNav();
+  const { push, setBackspaceConsumed } = useNav();
   const [query, setQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null);
   const [subreddits, setSubreddits] = useState<RedditSubreddit[]>([]);
   const [after, setAfter] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+
+  useEffect(() => {
+    setBackspaceConsumed(submittedQuery !== null || query.length > 0);
+    return () => setBackspaceConsumed(false);
+  }, [submittedQuery, query, setBackspaceConsumed]);
+
+  useInput((_input, key) => {
+    if ((key.backspace || key.delete) && submittedQuery !== null) {
+      setSubmittedQuery(null);
+    }
+  });
 
   const runSearch = (searchQuery: string, pageAfter: string | null): void => {
     setStatus('loading');
