@@ -34,9 +34,13 @@ export function JoinedSubredditsScreen(): React.ReactElement {
   const loadMore = (): void => {
     if (after === null) return;
     async function run(): Promise<void> {
-      const listing = await getJoinedSubreddits(after);
-      setSubreddits((previous) => [...previous, ...listing.children]);
-      setAfter(listing.after);
+      try {
+        const listing = await getJoinedSubreddits(after);
+        setSubreddits((previous) => [...previous, ...listing.children]);
+        setAfter(listing.after);
+      } catch {
+        setStatus('error');
+      }
     }
     void run();
   };

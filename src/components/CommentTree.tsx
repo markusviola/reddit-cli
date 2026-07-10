@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, Text } from 'ink';
-import { flattenVisibleComments } from '../comments/flatten';
+import { flattenVisibleComments, nearestAnchorId } from '../comments/flatten';
 import { branchPrefix, continuationPrefix } from '../comments/render';
 import { usernameColor } from '../colors';
 import { useListNav } from '../hooks/useListNav';
@@ -16,7 +16,7 @@ export function CommentTree({ comments, onExpandMore }: CommentTreeProps): React
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
   const rows = flattenVisibleComments(comments, expandedIds);
 
-  const { selectedIndex } = useListNav<CommentRow>({
+  const { selectedIndex, setSelectedIndex } = useListNav<CommentRow>({
     items: rows,
     onActivate: (row) => {
       if (row.content.type === 'collapsedReplies') {
@@ -26,6 +26,27 @@ export function CommentTree({ comments, onExpandMore }: CommentTreeProps): React
         onExpandMore(row);
       }
     },
+  });
+
+  const liveRef = useRef({ rows, selectedIndex });
+  const anchorIdRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    liveRef.current = { rows, selectedIndex };
+  });
+
+  useEffect(() => {
+    const anchorId = anchorIdRef.current;
+    if (anchorId === undefined) return;
+    const { rows: currentRows, selectedIndex: currentIndex } = liveRef.current;
+    const matchedIndex = currentRows.findIndex((row) => row.id === anchorId);
+    if (matchedIndex !== -1 && matchedIndex !== currentIndex) {
+      setSelectedIndex(matchedIndex);
+    }
+  }, [comments, expandedIds, setSelectedIndex]);
+
+  useEffect(() => {
+    anchorIdRef.current = nearestAnchorId(rows, selectedIndex);
   });
 
   if (rows.length === 0) {

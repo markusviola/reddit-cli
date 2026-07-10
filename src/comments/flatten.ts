@@ -19,6 +19,16 @@ export function flattenVisibleComments(thread: RedditThing[], expandedIds: Reado
   return rows;
 }
 
+// Nearest comment id above index; synthetic rows sit right
+// below their own parent.
+export function nearestAnchorId(rows: CommentRow[], index: number): string | undefined {
+  for (let i = index; i >= 0; i -= 1) {
+    const row = rows[i];
+    if (row !== undefined && row.content.type === 'comment') return row.id;
+  }
+  return undefined;
+}
+
 function walk(
   things: RedditThing[],
   depth: number,

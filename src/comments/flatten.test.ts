@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { flattenVisibleComments } from './flatten';
+import { flattenVisibleComments, nearestAnchorId } from './flatten';
 import type { RedditThing } from '../reddit/types';
 
-// Reproduces the exact fixture from the design spec: alice (collapsed, 3
-// replies), bob (expanded) -> carol (collapsed, 1 reply) + dave, erin (no replies).
+// alice: collapsed, 3 replies. bob: expanded -> carol
+// (collapsed, 1 reply) + dave. erin: no replies.
 function fixture(): RedditThing[] {
   return [
     {
@@ -125,4 +125,38 @@ test('a "more" stub renders as its own navigable row', () => {
   const rows = flattenVisibleComments(withMore, new Set(['p1']));
   const more = rows.find((row) => row.id === 'more:m1');
   assert.deepEqual(more?.content, { type: 'more', count: 2, childIds: ['a', 'b'] });
+});
+
+test('nearestAnchorId on a comment row returns that row\'s own id', () => {
+  const rows = flattenVisibleComments(fixture(), new Set());
+  const index = rows.findIndex((row) => row.id === 'alice');
+  assert.equal(nearestAnchorId(rows, index), 'alice');
+});
+
+test('nearestAnchorId on a collapsedReplies row returns its parent id', () => {
+  const rows = flattenVisibleComments(fixture(), new Set());
+  const index = rows.findIndex((row) => row.id === 'collapsed:alice');
+  assert.equal(nearestAnchorId(rows, index), 'alice');
+});
+
+test('nearestAnchorId on a "more" row returns its parent id', () => {
+  const withMore: RedditThing[] = [
+    {
+      kind: 'comment',
+      id: 'p1',
+      author: 'x',
+      body: 'parent',
+      score: 0,
+      createdUtc: 0,
+      replies: [{ kind: 'more', id: 'm1', childIds: ['a', 'b'], count: 2 }],
+    },
+  ];
+  const rows = flattenVisibleComments(withMore, new Set(['p1']));
+  const index = rows.findIndex((row) => row.id === 'more:m1');
+  assert.equal(nearestAnchorId(rows, index), 'p1');
+});
+
+test('nearestAnchorId returns undefined for an out-of-range index', () => {
+  const rows = flattenVisibleComments(fixture(), new Set());
+  assert.equal(nearestAnchorId(rows, -1), undefined);
 });

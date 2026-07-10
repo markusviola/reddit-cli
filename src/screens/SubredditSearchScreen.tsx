@@ -1,5 +1,5 @@
 // src/screens/SubredditSearchScreen.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { useNav } from '../nav/stack';
@@ -14,6 +14,11 @@ export function SubredditSearchScreen(): React.ReactElement {
   const [subreddits, setSubreddits] = useState<RedditSubreddit[]>([]);
   const [after, setAfter] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const submittedQueryRef = useRef(submittedQuery);
+
+  useEffect(() => {
+    submittedQueryRef.current = submittedQuery;
+  });
 
   useEffect(() => {
     setBackspaceConsumed(submittedQuery !== null || query.length > 0);
@@ -31,11 +36,12 @@ export function SubredditSearchScreen(): React.ReactElement {
     async function run(): Promise<void> {
       try {
         const listing = await searchSubreddits(searchQuery, pageAfter);
+        if (submittedQueryRef.current !== searchQuery) return;
         setSubreddits((previous) => (pageAfter === null ? listing.children : [...previous, ...listing.children]));
         setAfter(listing.after);
         setStatus('ready');
       } catch {
-        setStatus('error');
+        if (submittedQueryRef.current === searchQuery) setStatus('error');
       }
     }
     void run();

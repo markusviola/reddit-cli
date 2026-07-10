@@ -1,5 +1,5 @@
 // src/screens/FeedScreen.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useNav } from '../nav/stack';
 import { PostList } from '../components/PostList';
@@ -27,11 +27,16 @@ export function FeedScreen({ subreddit }: FeedScreenProps): React.ReactElement {
   const sort = SORTS[sortIndex] ?? 'hot';
   const feedKey = `${subreddit ?? ''}:${sort}`;
   const [lastFeedKey, setLastFeedKey] = useState(feedKey);
+  const feedKeyRef = useRef(feedKey);
 
   if (lastFeedKey !== feedKey) {
     setLastFeedKey(feedKey);
     setStatus('loading');
   }
+
+  useEffect(() => {
+    feedKeyRef.current = feedKey;
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -60,10 +65,16 @@ export function FeedScreen({ subreddit }: FeedScreenProps): React.ReactElement {
 
   const loadMore = (): void => {
     if (after === null) return;
+    const requestKey = feedKey;
     async function run(): Promise<void> {
-      const listing = await fetchPage(subreddit, sort, after);
-      setPosts((previous) => [...previous, ...listing.children]);
-      setAfter(listing.after);
+      try {
+        const listing = await fetchPage(subreddit, sort, after);
+        if (feedKeyRef.current !== requestKey) return;
+        setPosts((previous) => [...previous, ...listing.children]);
+        setAfter(listing.after);
+      } catch {
+        if (feedKeyRef.current === requestKey) setStatus('error');
+      }
     }
     void run();
   };

@@ -1,5 +1,5 @@
 // src/screens/GlobalSearchScreen.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { useNav } from '../nav/stack';
@@ -14,6 +14,11 @@ export function GlobalSearchScreen(): React.ReactElement {
   const [posts, setPosts] = useState<RedditPost[]>([]);
   const [after, setAfter] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const submittedQueryRef = useRef(submittedQuery);
+
+  useEffect(() => {
+    submittedQueryRef.current = submittedQuery;
+  });
 
   useEffect(() => {
     setBackspaceConsumed(submittedQuery !== null || query.length > 0);
@@ -31,11 +36,12 @@ export function GlobalSearchScreen(): React.ReactElement {
     async function run(): Promise<void> {
       try {
         const listing = await searchPosts(searchQuery, pageAfter);
+        if (submittedQueryRef.current !== searchQuery) return;
         setPosts((previous) => (pageAfter === null ? listing.children : [...previous, ...listing.children]));
         setAfter(listing.after);
         setStatus('ready');
       } catch {
-        setStatus('error');
+        if (submittedQueryRef.current === searchQuery) setStatus('error');
       }
     }
     void run();

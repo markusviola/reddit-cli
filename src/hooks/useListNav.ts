@@ -1,4 +1,4 @@
-import { useReducer, useEffect } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { useInput } from 'ink';
 import { selectionReducer } from './selectionReducer';
 
@@ -10,10 +10,16 @@ export type UseListNavOptions<T> = {
 
 export type UseListNavResult = {
   selectedIndex: number;
+  setSelectedIndex: (index: number) => void;
 };
 
 export function useListNav<T>({ items, onActivate, onReachEnd }: UseListNavOptions<T>): UseListNavResult {
   const [state, dispatch] = useReducer(selectionReducer, { index: 0 });
+  const onReachEndRef = useRef(onReachEnd);
+
+  useEffect(() => {
+    onReachEndRef.current = onReachEnd;
+  });
 
   useInput((_input, key) => {
     if (key.upArrow) {
@@ -27,10 +33,14 @@ export function useListNav<T>({ items, onActivate, onReachEnd }: UseListNavOptio
   });
 
   useEffect(() => {
-    if (onReachEnd !== undefined && items.length > 0 && state.index >= items.length - 1) {
-      onReachEnd();
+    if (onReachEndRef.current !== undefined && items.length > 0 && state.index >= items.length - 1) {
+      onReachEndRef.current();
     }
-  }, [state.index, items.length, onReachEnd]);
+  }, [state.index, items.length]);
 
-  return { selectedIndex: state.index };
+  const setSelectedIndex = useCallback((index: number): void => {
+    dispatch({ type: 'set', index });
+  }, []);
+
+  return { selectedIndex: state.index, setSelectedIndex };
 }

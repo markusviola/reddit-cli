@@ -21,3 +21,7 @@ test('down clamps at itemCount - 1', () => {
 test('down with itemCount 0 stays at 0', () => {
   assert.deepEqual(selectionReducer({ index: 0 }, { type: 'down', itemCount: 0 }), { index: 0 });
 });
+
+test('set jumps directly to the given index', () => {
+  assert.deepEqual(selectionReducer({ index: 0 }, { type: 'set', index: 5 }), { index: 5 });
+});

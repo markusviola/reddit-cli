@@ -26,6 +26,7 @@ export function ThreadScreen({ subreddit, postId }: ThreadScreenProps): React.Re
   const [post, setPost] = useState<RedditPost | null>(null);
   const [comments, setComments] = useState<RedditThing[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [expandFailed, setExpandFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,9 +52,14 @@ export function ThreadScreen({ subreddit, postId }: ThreadScreenProps): React.Re
     const stubId = row.id.slice('more:'.length);
     const childIds = row.content.childIds;
     const currentPost = post;
+    setExpandFailed(false);
     async function run(): Promise<void> {
-      const fetched = await loadMoreChildren(`t3_${currentPost.id}`, childIds);
-      setComments((previous) => replaceMoreStub(previous, stubId, fetched));
+      try {
+        const fetched = await loadMoreChildren(`t3_${currentPost.id}`, childIds);
+        setComments((previous) => replaceMoreStub(previous, stubId, fetched));
+      } catch {
+        setExpandFailed(true);
+      }
     }
     void run();
   };
@@ -74,6 +80,7 @@ export function ThreadScreen({ subreddit, postId }: ThreadScreenProps): React.Re
       <Box marginTop={1}>
         <Text bold>Comments</Text>
       </Box>
+      {expandFailed ? <Text color="red">Failed to load replies. Press Enter to retry.</Text> : null}
       <CommentTree comments={comments} onExpandMore={handleExpandMore} />
     </Box>
   );
