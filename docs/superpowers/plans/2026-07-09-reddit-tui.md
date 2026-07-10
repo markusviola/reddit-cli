@@ -1678,7 +1678,7 @@ export function useListNav<T>({ items, onActivate, onReachEnd }: UseListNavOptio
 
 ```tsx
 // src/nav/stack.tsx
-import React, { createContext, useContext, useReducer, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useReducer, useRef } from 'react';
 import { useInput, useApp } from 'ink';
 import { stackReducer } from './stackReducer';
 import type { StackAction } from './stackReducer';
@@ -1695,6 +1695,7 @@ export type NavContextValue = {
   frame: Frame;
   push: (frame: Frame) => void;
   pop: () => void;
+  setBackspaceConsumed: (consumed: boolean) => void;
 };
 
 const NavContext = createContext<NavContextValue | null>(null);
@@ -1708,6 +1709,7 @@ export function NavProvider({ children }: { children: React.ReactNode }): React.
   );
   const { exit } = useApp();
   const lastCtrlCAt = useRef(0);
+  const backspaceConsumedRef = useRef(false);
 
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
@@ -1720,17 +1722,26 @@ export function NavProvider({ children }: { children: React.ReactNode }): React.
       return;
     }
     if (key.backspace || key.delete) {
-      dispatch({ type: 'pop' });
+      if (!backspaceConsumedRef.current) {
+        dispatch({ type: 'pop' });
+      }
     }
   });
+
+  const push = useCallback((frame: Frame) => dispatch({ type: 'push', frame }), []);
+  const pop = useCallback(() => dispatch({ type: 'pop' }), []);
+  const setBackspaceConsumed = useCallback((consumed: boolean) => {
+    backspaceConsumedRef.current = consumed;
+  }, []);
 
   const currentFrame = stack[stack.length - 1];
   if (currentFrame === undefined) throw new Error('unreachable: stack is never empty');
 
   const value: NavContextValue = {
     frame: currentFrame,
-    push: (frame) => dispatch({ type: 'push', frame }),
-    pop: () => dispatch({ type: 'pop' }),
+    push,
+    pop,
+    setBackspaceConsumed,
   };
 
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>;
@@ -1742,6 +1753,8 @@ export function useNav(): NavContextValue {
   return context;
 }
 ```
+
+> **Why `setBackspaceConsumed` exists:** Ink's `useInput` has no event-propagation control — every registered listener fires on every keystroke, with no way for one to suppress another. Any screen with a text input (`SubredditSearchScreen`, `GlobalSearchScreen`) needs Backspace to edit text while the field has content, not pop the nav stack. `setBackspaceConsumed(true)` tells `NavProvider` to skip its own pop-on-backspace for as long as the flag is set; the owning screen is responsible for resetting it to `false` on unmount (via a `useEffect` cleanup) so a stale `true` can never leak into whatever screen renders next. This must be driven from a `useEffect`, not the render body — this project's `eslint-plugin-react-hooks` config enables the `refs`/`purity`/`set-state-in-render` rules, which forbid mutating a ref during render; verified directly against the installed plugin (`react-hooks/refs`, `react-hooks/purity`, and `react-hooks/set-state-in-render` are all `"error"` in `configs.recommended.rules`).
 
 - [ ] **Step 11: Type-check and commit**
 
@@ -2211,15 +2224,17 @@ git commit -m "Add Feed screen (shared by Home Feed and subreddit feeds)"
 - Modify: `src/App.tsx`
 
 **Interfaces:**
-- Consumes: `useNav` (Task 8); `SubredditList` (Task 10); `searchSubreddits` from `../reddit/client` (Task 7); `RedditSubreddit` (Task 4); `TextInput` from `ink-text-input`.
+- Consumes: `useNav` (Task 8, including its `setBackspaceConsumed`); `SubredditList` (Task 10); `searchSubreddits` from `../reddit/client` (Task 7); `RedditSubreddit` (Task 4); `TextInput` from `ink-text-input`.
 - Produces: `SubredditSearchScreen`. Wired into `App.tsx`'s `'SubredditSearch'` case.
+
+> **Backspace semantics for this screen (approved resolution):** while the query field has any text, Backspace edits it (deletes a character) and never navigates — achieved by calling `setBackspaceConsumed(true)` whenever `query.length > 0` or results are showing, which tells `NavProvider` to skip its own pop-on-backspace. Once the field is empty and no results are showing, Backspace pops normally (back to MainMenu). From the results view, Backspace is intercepted locally (via this screen's own `useInput`) to return to the query input (preserving whatever was typed) rather than popping the stack — this is why `submittedQuery !== null` also sets `setBackspaceConsumed(true)`: it suppresses the global pop so this screen's own handler can act instead.
 
 - [ ] **Step 1: Write `src/screens/SubredditSearchScreen.tsx`**
 
 ```tsx
 // src/screens/SubredditSearchScreen.tsx
-import React, { useState } from 'react';
-import { Box, Text } from 'ink';
+import React, { useEffect, useState } from 'react';
+import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { useNav } from '../nav/stack';
 import { SubredditList } from '../components/SubredditList';
@@ -2227,12 +2242,23 @@ import { searchSubreddits } from '../reddit/client';
 import type { RedditSubreddit } from '../reddit/types';
 
 export function SubredditSearchScreen(): React.ReactElement {
-  const { push } = useNav();
+  const { push, setBackspaceConsumed } = useNav();
   const [query, setQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null);
   const [subreddits, setSubreddits] = useState<RedditSubreddit[]>([]);
   const [after, setAfter] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+
+  useEffect(() => {
+    setBackspaceConsumed(submittedQuery !== null || query.length > 0);
+    return () => setBackspaceConsumed(false);
+  }, [submittedQuery, query, setBackspaceConsumed]);
+
+  useInput((input, key) => {
+    if ((key.backspace || key.delete) && submittedQuery !== null) {
+      setSubmittedQuery(null);
+    }
+  });
 
   const runSearch = (searchQuery: string, pageAfter: string | null): void => {
     setStatus('loading');
@@ -2329,12 +2355,14 @@ Expected: both exit 0.
 
 - [ ] **Step 4: Manually verify by running the app**
 
-Run: `npm start` → "Search Subreddits" → type e.g. `berserk` → Enter.
+Run: `npm start` → "Search Subreddits" → type e.g. `berserk`, then press Backspace once → confirm it deletes the last character (`berserk` → `berserl`... i.e. the field edits, the screen does NOT exit to MainMenu) → retype to `berserk` → Enter.
 Expected:
+- Backspace while the field has text edits the text and does nothing else — this is the specific case a previous attempt at this task missed, so don't skip it.
 - Results list of matching subreddits appears, names in blue, first one highlighted green, subscriber counts shown.
 - Selecting one (Enter) navigates into its Feed screen (Task 11's `FeedScreen`, now scoped to that subreddit) — confirming SubredditFeed works end-to-end via the shared component.
 - Scrolling past the last result auto-loads more.
-- Backspace from the results returns to the query input; Backspace from the query input returns to MainMenu.
+- From the results view, Backspace returns to the query input with the previous query text still shown (not cleared).
+- From the query input with an EMPTY field, Backspace returns to MainMenu.
 
 Ctrl+C twice to exit.
 
@@ -2775,15 +2803,17 @@ git commit -m "Add Thread screen"
 - Modify: `src/App.tsx`
 
 **Interfaces:**
-- Consumes: `useNav` (Task 8); `PostList` (Task 10); `searchPosts` from `../reddit/client` (Task 7); `RedditPost` (Task 4); `TextInput` from `ink-text-input`.
+- Consumes: `useNav` (Task 8, including its `setBackspaceConsumed`); `PostList` (Task 10); `searchPosts` from `../reddit/client` (Task 7); `RedditPost` (Task 4); `TextInput` from `ink-text-input`.
 - Produces: `GlobalSearchScreen`. This is the last screen — `App.tsx`'s switch drops the `default` fallback and becomes fully exhaustive (a `never` check catches any future unhandled `Frame` variant at compile time).
+
+> **Backspace semantics for this screen (same resolution as Task 12's `SubredditSearchScreen`, applied here for the same reason — a text input plus a results view in one frame):** while the query field has text, Backspace edits it and never navigates; once empty with no results showing, Backspace pops to MainMenu; from the results view, Backspace is intercepted locally to return to the (preserved) query input rather than popping the stack.
 
 - [ ] **Step 1: Write `src/screens/GlobalSearchScreen.tsx`**
 
 ```tsx
 // src/screens/GlobalSearchScreen.tsx
-import React, { useState } from 'react';
-import { Box, Text } from 'ink';
+import React, { useEffect, useState } from 'react';
+import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import { useNav } from '../nav/stack';
 import { PostList } from '../components/PostList';
@@ -2791,12 +2821,23 @@ import { searchPosts } from '../reddit/client';
 import type { RedditPost } from '../reddit/types';
 
 export function GlobalSearchScreen(): React.ReactElement {
-  const { push } = useNav();
+  const { push, setBackspaceConsumed } = useNav();
   const [query, setQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null);
   const [posts, setPosts] = useState<RedditPost[]>([]);
   const [after, setAfter] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+
+  useEffect(() => {
+    setBackspaceConsumed(submittedQuery !== null || query.length > 0);
+    return () => setBackspaceConsumed(false);
+  }, [submittedQuery, query, setBackspaceConsumed]);
+
+  useInput((input, key) => {
+    if ((key.backspace || key.delete) && submittedQuery !== null) {
+      setSubmittedQuery(null);
+    }
+  });
 
   const runSearch = (searchQuery: string, pageAfter: string | null): void => {
     setStatus('loading');
@@ -2914,7 +2955,7 @@ Run: `npm start` and walk the entire spec:
 - MainMenu → Home Feed → cycle sort with `s` → Enter a post → Thread (title blue, image tag if applicable, comment tree with branches/colors/expand) → Backspace → Backspace → MainMenu.
 - MainMenu → Search Subreddits → type a query → Enter → select a result → its Feed → Enter a post → Thread → Backspace back out to MainMenu.
 - MainMenu → Joined Subreddits → select one → its Feed.
-- MainMenu → Global Search → type a query → Enter → select a result → Thread.
+- MainMenu → Global Search → type a query, press Backspace once to confirm it edits the text (does not exit the screen), retype, Enter → select a result → Thread → Backspace from results returns to the query input (text preserved) → Backspace on the now-empty field returns to MainMenu.
 - Throughout: green selection highlight, blue titles, per-user comment colors, yellow/black image tags, auto-load-more on scroll, Ctrl+C-twice-to-exit.
 
 - [ ] **Step 6: Commit**
