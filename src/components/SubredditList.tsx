@@ -14,6 +14,11 @@ export type SubredditListProps = {
   availableHeight: number;
 };
 
+type SubredditPreview = {
+  name: string;
+  meta: string | undefined;
+};
+
 function metaText(subreddit: RedditSubreddit): string {
   return `${subreddit.subscribers.toLocaleString()} subscribers · ${subreddit.title}`;
 }
@@ -22,6 +27,25 @@ function estimateSubredditHeight(subreddit: RedditSubreddit, columns: number): n
   const titleLines = estimateWrappedLines(`r/${subreddit.name}`, columns);
   const metaLines = estimateWrappedLines(metaText(subreddit), columns);
   return titleLines + metaLines + 1;
+}
+
+// Fills as much of a preview (name, then meta) as fits in the given
+// budget, rather than always truncating to the name alone.
+function buildSubredditPreview(subreddit: RedditSubreddit, columns: number, budget: number): SubredditPreview | undefined {
+  if (budget <= 0) return undefined;
+  const nameText = `r/${subreddit.name}`;
+  const fullNameLines = estimateWrappedLines(nameText, columns);
+  if (fullNameLines > budget) {
+    return { name: truncateToLines(nameText, columns, budget), meta: undefined };
+  }
+
+  const remaining = budget - fullNameLines;
+  const fullMeta = metaText(subreddit);
+  const fullMetaLines = estimateWrappedLines(fullMeta, columns);
+  const meta =
+    remaining >= fullMetaLines ? fullMeta : remaining >= 1 ? truncateToLines(fullMeta, columns, remaining) : undefined;
+
+  return { name: nameText, meta };
 }
 
 export function SubredditList({
@@ -49,10 +73,7 @@ export function SubredditList({
   const indicatorLines = (hasAbove ? 1 : 0) + (hasBelow ? 1 : 0);
   const remainingSlack = availableHeight - usedHeight - indicatorLines;
   const nextSubreddit = hasBelow ? subreddits[end] : undefined;
-  const truncatedPreview =
-    nextSubreddit !== undefined && remainingSlack > 0
-      ? truncateToLines(`r/${nextSubreddit.name}`, columns, remainingSlack)
-      : undefined;
+  const preview = nextSubreddit !== undefined ? buildSubredditPreview(nextSubreddit, columns, remainingSlack) : undefined;
 
   return (
     <Box flexDirection="column">
@@ -71,7 +92,12 @@ export function SubredditList({
           </Box>
         );
       })}
-      {truncatedPreview !== undefined ? <Text dimColor>{truncatedPreview}</Text> : null}
+      {preview !== undefined ? (
+        <Box flexDirection="column">
+          <Text dimColor>{preview.name}</Text>
+          {preview.meta !== undefined ? <Text dimColor>{preview.meta}</Text> : null}
+        </Box>
+      ) : null}
       {hasBelow ? <Text dimColor>{`↓ ${subreddits.length - end} more below`}</Text> : null}
     </Box>
   );

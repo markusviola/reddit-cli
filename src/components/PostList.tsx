@@ -15,6 +15,12 @@ export type PostListProps = {
   availableHeight: number;
 };
 
+type PostPreview = {
+  title: string;
+  showImage: boolean;
+  meta: string | undefined;
+};
+
 function metaText(post: RedditPost): string {
   return `r/${post.subreddit} · u/${post.author} · ${post.score} pts · ${post.numComments} comments`;
 }
@@ -24,6 +30,26 @@ function estimatePostHeight(post: RedditPost, columns: number): number {
   const imageLines = post.hasImage ? 1 : 0;
   const metaLines = estimateWrappedLines(metaText(post), columns);
   return titleLines + imageLines + metaLines + 1;
+}
+
+// Fills as much of a preview (title, then image, then meta) as fits
+// in the given budget, rather than always truncating to title-only.
+function buildPostPreview(post: RedditPost, columns: number, budget: number): PostPreview | undefined {
+  if (budget <= 0) return undefined;
+  const fullTitleLines = estimateWrappedLines(post.title, columns);
+  if (fullTitleLines > budget) {
+    return { title: truncateToLines(post.title, columns, budget), showImage: false, meta: undefined };
+  }
+
+  let remaining = budget - fullTitleLines;
+  const showImage = post.hasImage && remaining >= 1;
+  if (showImage) remaining -= 1;
+
+  const fullMeta = metaText(post);
+  const fullMetaLines = estimateWrappedLines(fullMeta, columns);
+  const meta = remaining >= fullMetaLines ? fullMeta : remaining >= 1 ? truncateToLines(fullMeta, columns, remaining) : undefined;
+
+  return { title: post.title, showImage, meta };
 }
 
 export function PostList({
@@ -46,8 +72,7 @@ export function PostList({
   const indicatorLines = (hasAbove ? 1 : 0) + (hasBelow ? 1 : 0);
   const remainingSlack = availableHeight - usedHeight - indicatorLines;
   const nextPost = hasBelow ? posts[end] : undefined;
-  const truncatedPreview =
-    nextPost !== undefined && remainingSlack > 0 ? truncateToLines(nextPost.title, columns, remainingSlack) : undefined;
+  const preview = nextPost !== undefined ? buildPostPreview(nextPost, columns, remainingSlack) : undefined;
 
   return (
     <Box flexDirection="column">
@@ -67,7 +92,13 @@ export function PostList({
           </Box>
         );
       })}
-      {truncatedPreview !== undefined ? <Text dimColor>{truncatedPreview}</Text> : null}
+      {preview !== undefined ? (
+        <Box flexDirection="column">
+          <Text dimColor>{preview.title}</Text>
+          {preview.showImage ? <ImageTag /> : null}
+          {preview.meta !== undefined ? <Text dimColor>{preview.meta}</Text> : null}
+        </Box>
+      ) : null}
       {hasBelow ? <Text dimColor>{`↓ ${posts.length - end} more below`}</Text> : null}
     </Box>
   );
