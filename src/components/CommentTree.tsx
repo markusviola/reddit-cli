@@ -18,38 +18,76 @@ export type CommentTreeProps = {
   availableHeight: number;
 };
 
-// Long post bodies used to render as an unbounded fixed header above
-// the comment tree, pushing the whole viewport past the post itself.
-// Chunking the post body into rows in the same scrollable/selectable
-// list as the comments keeps the top of the post reachable by
+// Long post bodies and long comment bodies both used to render as a
+// single oversized row, pushing the sticky window past their own top.
+// Chunking them into <=8-line (or per-paragraph) rows in the same
+// scrollable/selectable list keeps every part of them reachable by
 // scrolling sticky selection like everything else.
-const POST_CHUNK_MAX_LINES = 8;
+const CHUNK_MAX_LINES = 8;
 
 type TreeRow =
   | { kind: 'text'; id: string; text: string; dim: boolean; bold: boolean }
-  | { kind: 'comment'; id: string; row: CommentRow };
+  | { kind: 'comment'; id: string; row: CommentRow; bodyChunk: string; isFirstChunk: boolean; isLastChunk: boolean };
 
-function estimateCommentHeight(row: CommentRow, columns: number): number {
-  if (row.content.type === 'collapsedReplies' || row.content.type === 'more') {
-    return 1;
-  }
+// Splits each comment's body into <=CHUNK_MAX_LINES display rows,
+// keeping the tree-branch metadata (depth/prefix/etc.) attached to
+// every chunk. Returns a parallel array mapping each display row back
+// to its source index in commentRows, for anchor re-syncing.
+function buildCommentDisplayRows(
+  commentRows: CommentRow[],
+  columns: number
+): { rows: TreeRow[]; sourceIndices: number[] } {
+  const rows: TreeRow[] = [];
+  const sourceIndices: number[] = [];
+
+  commentRows.forEach((row, commentIndex) => {
+    if (row.content.type !== 'comment') {
+      rows.push({ kind: 'comment', id: row.id, row, bodyChunk: '', isFirstChunk: true, isLastChunk: true });
+      sourceIndices.push(commentIndex);
+      return;
+    }
+    const prefixWidth = branchPrefix(row).length;
+    const bodyWidth = Math.max(1, columns - prefixWidth);
+    const bodyChunks = chunkText(row.content.body, bodyWidth, CHUNK_MAX_LINES);
+    const safeChunks = bodyChunks.length > 0 ? bodyChunks : [''];
+    safeChunks.forEach((bodyChunk, chunkIndex) => {
+      rows.push({
+        kind: 'comment',
+        id: chunkIndex === 0 ? row.id : `${row.id}#${chunkIndex}`,
+        row,
+        bodyChunk,
+        isFirstChunk: chunkIndex === 0,
+        isLastChunk: chunkIndex === safeChunks.length - 1,
+      });
+      sourceIndices.push(commentIndex);
+    });
+  });
+
+  return { rows, sourceIndices };
+}
+
+function estimateCommentDisplayHeight(displayRow: Extract<TreeRow, { kind: 'comment' }>, columns: number): number {
+  const { row, bodyChunk, isFirstChunk, isLastChunk } = displayRow;
+  if (row.content.type !== 'comment') return 1;
   const prefixWidth = branchPrefix(row).length;
   const bodyWidth = Math.max(1, columns - prefixWidth);
-  const bodyLines = estimateWrappedLines(row.content.body, bodyWidth);
-  const margin = row.depth === 0 ? 1 : 0;
-  return 1 + bodyLines + margin;
+  const bodyLines = estimateWrappedLines(bodyChunk, bodyWidth);
+  const headerLine = isFirstChunk ? 1 : 0;
+  const margin = isLastChunk && row.depth === 0 ? 1 : 0;
+  return headerLine + bodyLines + margin;
 }
 
 function estimateRowHeight(row: TreeRow, columns: number): number {
-  return row.kind === 'text' ? estimateWrappedLines(row.text, columns) + 1 : estimateCommentHeight(row.row, columns);
+  return row.kind === 'text' ? estimateWrappedLines(row.text, columns) + 1 : estimateCommentDisplayHeight(row, columns);
 }
 
 export function CommentTree({ postBody, comments, onExpandMore, availableHeight }: CommentTreeProps): React.ReactElement {
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
   const { columns } = useWindowSize();
   const commentRows = flattenVisibleComments(comments, expandedIds);
+  const { rows: commentDisplayRows, sourceIndices } = buildCommentDisplayRows(commentRows, columns);
 
-  const leadingRows: TreeRow[] = chunkText(postBody, columns, POST_CHUNK_MAX_LINES).map((text, index) => ({
+  const leadingRows: TreeRow[] = chunkText(postBody, columns, CHUNK_MAX_LINES).map((text, index) => ({
     kind: 'text',
     id: `post:${index}`,
     text,
@@ -61,7 +99,7 @@ export function CommentTree({ postBody, comments, onExpandMore, availableHeight 
     leadingRows.push({ kind: 'text', id: 'no-comments', text: 'No comments yet.', dim: true, bold: false });
   }
   const leadingCount = leadingRows.length;
-  const rows: TreeRow[] = [...leadingRows, ...commentRows.map((row) => ({ kind: 'comment' as const, id: row.id, row }))];
+  const rows: TreeRow[] = [...leadingRows, ...commentDisplayRows];
 
   const { selectedIndex, setSelectedIndex } = useListNav<TreeRow>({
     items: rows,
@@ -77,29 +115,36 @@ export function CommentTree({ postBody, comments, onExpandMore, availableHeight 
     },
   });
 
-  const liveRef = useRef({ commentRows, selectedIndex, leadingCount });
+  const liveRef = useRef({ commentRows, sourceIndices, selectedIndex, leadingCount });
   const anchorIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    liveRef.current = { commentRows, selectedIndex, leadingCount };
+    liveRef.current = { commentRows, sourceIndices, selectedIndex, leadingCount };
   });
 
   useEffect(() => {
     const anchorId = anchorIdRef.current;
     if (anchorId === undefined) return;
-    const { commentRows: currentCommentRows, selectedIndex: currentIndex, leadingCount: currentLeadingCount } =
-      liveRef.current;
+    const {
+      commentRows: currentCommentRows,
+      sourceIndices: currentSourceIndices,
+      selectedIndex: currentIndex,
+      leadingCount: currentLeadingCount,
+    } = liveRef.current;
     const matchedCommentIndex = currentCommentRows.findIndex((row) => row.id === anchorId);
     if (matchedCommentIndex === -1) return;
-    const matchedIndex = currentLeadingCount + matchedCommentIndex;
+    const matchedDisplayIndex = currentSourceIndices.indexOf(matchedCommentIndex);
+    if (matchedDisplayIndex === -1) return;
+    const matchedIndex = currentLeadingCount + matchedDisplayIndex;
     if (matchedIndex !== currentIndex) {
       setSelectedIndex(matchedIndex);
     }
   }, [comments, expandedIds, setSelectedIndex]);
 
   useEffect(() => {
-    const commentSelectedIndex = selectedIndex - leadingCount;
-    anchorIdRef.current = commentSelectedIndex >= 0 ? nearestAnchorId(commentRows, commentSelectedIndex) : undefined;
+    const displaySelectedIndex = selectedIndex - leadingCount;
+    const commentIndex = displaySelectedIndex >= 0 ? sourceIndices[displaySelectedIndex] : undefined;
+    anchorIdRef.current = commentIndex === undefined ? undefined : nearestAnchorId(commentRows, commentIndex);
   });
 
   const itemHeights = rows.map((row) => estimateRowHeight(row, columns));
@@ -114,7 +159,7 @@ export function CommentTree({ postBody, comments, onExpandMore, availableHeight 
         return row.kind === 'text' ? (
           <TextRowView key={row.id} text={row.text} dim={row.dim} bold={row.bold} selected={selected} />
         ) : (
-          <CommentRowView key={row.id} row={row.row} selected={selected} />
+          <CommentRowView key={row.id} displayRow={row} selected={selected} />
         );
       })}
       {hasBelow ? <Text dimColor>{`↓ ${rows.length - end} more below`}</Text> : null}
@@ -142,7 +187,14 @@ function TextRowView({
   );
 }
 
-function CommentRowView({ row, selected }: { row: CommentRow; selected: boolean }): React.ReactElement {
+function CommentRowView({
+  displayRow,
+  selected,
+}: {
+  displayRow: Extract<TreeRow, { kind: 'comment' }>;
+  selected: boolean;
+}): React.ReactElement {
+  const { row, bodyChunk, isFirstChunk, isLastChunk } = displayRow;
   const prefix = branchPrefix(row);
 
   if (row.content.type === 'collapsedReplies') {
@@ -155,19 +207,22 @@ function CommentRowView({ row, selected }: { row: CommentRow; selected: boolean 
 
   const bodyPrefix = continuationPrefix(row, row.content.continuesBelow);
   const authorColor = selected ? 'green' : usernameColor(row.content.author);
+  const marginBottom = isLastChunk && row.depth === 0 ? 1 : 0;
 
   return (
-    <Box flexDirection="column" marginBottom={row.depth === 0 ? 1 : 0}>
-      <Box>
-        <RowText selected={selected}>{prefix}</RowText>
-        <Text color={authorColor} bold={selected}>
-          {`u/${row.content.author}`}
-        </Text>
-        <RowText selected={selected}>{` (${row.content.score} pts)`}</RowText>
-      </Box>
+    <Box flexDirection="column" marginBottom={marginBottom}>
+      {isFirstChunk ? (
+        <Box>
+          <RowText selected={selected}>{prefix}</RowText>
+          <Text color={authorColor} bold={selected}>
+            {`u/${row.content.author}`}
+          </Text>
+          <RowText selected={selected}>{` (${row.content.score} pts)`}</RowText>
+        </Box>
+      ) : null}
       <RowText selected={selected}>
         {bodyPrefix}
-        {row.content.body}
+        {bodyChunk}
       </RowText>
     </Box>
   );
