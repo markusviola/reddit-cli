@@ -12,10 +12,13 @@ import { useSearchScreen } from '../hooks/useSearchScreen';
 const TITLE_TEXT = 'Search Subreddits';
 const SEARCH_FAILED_TEXT = 'Search failed. Press Backspace and try again.';
 
+/** Blank line + "Return" row shown below the query input. */
+const RETURN_BUTTON_LINES = 2;
+
 export function SubredditSearchScreen(): React.ReactElement {
   const { frame, push, updateFrame } = useNav();
   const initialQuery = frame.screen === 'SubredditSearch' ? (frame.initialQuery ?? '') : '';
-  const { query, setQuery, submittedQuery, items, status, handleSubmit, handleReachEnd } = useSearchScreen(
+  const { query, setQuery, submittedQuery, items, status, handleSubmit, handleReachEnd, focus } = useSearchScreen(
     searchSubreddits,
     initialQuery
   );
@@ -23,7 +26,8 @@ export function SubredditSearchScreen(): React.ReactElement {
   const { availableHeight } = useAvailableHeight((columns) => {
     const titleLines = estimateWrappedLines(TITLE_TEXT, columns);
     if (submittedQuery === null) {
-      return titleLines + estimateWrappedLines(`Query: ${query}`, columns);
+      const queryLines = estimateWrappedLines(`Query: ${query}`, columns);
+      return titleLines + queryLines + RETURN_BUTTON_LINES;
     }
     const resultsLines = estimateWrappedLines(`Results for "${submittedQuery}"`, columns);
     const errorLines = status === 'error' ? estimateWrappedLines(SEARCH_FAILED_TEXT, columns) : 0;
@@ -35,9 +39,20 @@ export function SubredditSearchScreen(): React.ReactElement {
       <Box flexDirection="column">
         <Text bold>{TITLE_TEXT}</Text>
         {submittedQuery === null ? (
-          <Box>
-            <Text>Query: </Text>
-            <TextInput value={query} onChange={setQuery} onSubmit={handleSubmit} />
+          <Box flexDirection="column">
+            <Box>
+              <Text>Query: </Text>
+              {focus === 'query' ? (
+                <TextInput value={query} onChange={setQuery} onSubmit={handleSubmit} />
+              ) : (
+                <Text>{query}</Text>
+              )}
+            </Box>
+            <Box marginTop={1}>
+              <Text bold={focus === 'return'} {...(focus === 'return' ? { color: 'green' as const } : {})}>
+                Return
+              </Text>
+            </Box>
           </Box>
         ) : (
           <Box flexDirection="column">
