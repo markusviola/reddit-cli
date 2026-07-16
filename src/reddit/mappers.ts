@@ -1,4 +1,5 @@
 import { asRecord, asString, asNumber, asBoolean } from './parse';
+import { decodeHtmlEntities } from './htmlEntities';
 import type { Listing, RedditPost, MoreComments, RedditThing, RedditSubreddit } from './types';
 
 const INLINE_IMAGE_PATTERN = /!\[[^\]]*\]\([a-zA-Z0-9_-]+\)/g;
@@ -8,12 +9,12 @@ export function mapPost(raw: unknown): RedditPost {
   return {
     id: asString(data.id),
     subreddit: asString(data.subreddit),
-    title: asString(data.title),
+    title: decodeHtmlEntities(asString(data.title)),
     author: asString(data.author),
     score: asNumber(data.score),
     numComments: asNumber(data.num_comments),
     createdUtc: asNumber(data.created_utc),
-    selftext: asString(data.selftext),
+    selftext: decodeHtmlEntities(asString(data.selftext)),
     url: asString(data.url),
     hasImage: postHasImage(data),
   };
@@ -35,7 +36,7 @@ export function mapComment(raw: unknown): RedditThing {
     kind: 'comment',
     id: asString(data.id),
     author: asString(data.author),
-    body: redactInlineImages(asString(data.body)),
+    body: redactInlineImages(decodeHtmlEntities(asString(data.body))),
     score: asNumber(data.score),
     createdUtc: asNumber(data.created_utc),
     replies: mapReplies(data.replies),
@@ -66,9 +67,9 @@ export function mapSubreddit(raw: unknown): RedditSubreddit {
   const data = asRecord(asRecord(raw).data);
   return {
     name: asString(data.display_name),
-    title: asString(data.title),
+    title: decodeHtmlEntities(asString(data.title)),
     subscribers: asNumber(data.subscribers),
-    publicDescription: asString(data.public_description),
+    publicDescription: decodeHtmlEntities(asString(data.public_description)),
   };
 }
 
