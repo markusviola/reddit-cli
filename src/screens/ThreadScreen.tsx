@@ -3,9 +3,13 @@ import React, { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
 import { CommentTree } from '../components/CommentTree';
 import { ImageTag } from '../components/ImageTag';
+import { useAvailableHeight } from '../hooks/useAvailableHeight';
+import { estimateWrappedLines } from '../rendering/textMetrics';
 import { getThread, loadMoreChildren } from '../reddit/client';
 import type { RedditPost, RedditThing } from '../reddit/types';
 import type { CommentRow } from '../comments/flatten';
+
+const EXPAND_FAILED_TEXT = 'Failed to load replies. Press Enter to retry.';
 
 export type ThreadScreenProps = {
   subreddit: string;
@@ -64,6 +68,17 @@ export function ThreadScreen({ subreddit, postId }: ThreadScreenProps): React.Re
     void run();
   };
 
+  const { availableHeight } = useAvailableHeight((columns) => {
+    if (post === null) return 0;
+    const titleLines = estimateWrappedLines(post.title, columns);
+    const imageLines = post.hasImage ? 1 : 0;
+    const metaLines = estimateWrappedLines(`r/${post.subreddit} · u/${post.author} · ${post.score} pts`, columns);
+    const selftextLines = post.selftext.length > 0 ? estimateWrappedLines(post.selftext, columns) : 0;
+    const commentsHeadingLines = 2;
+    const expandFailedLines = expandFailed ? estimateWrappedLines(EXPAND_FAILED_TEXT, columns) : 0;
+    return titleLines + imageLines + metaLines + selftextLines + commentsHeadingLines + expandFailedLines;
+  });
+
   if (status === 'loading') return <Text>Loading...</Text>;
   if (status === 'error' || post === null) {
     return <Text color="red">Failed to load thread. Press Backspace and try again.</Text>;
@@ -71,17 +86,19 @@ export function ThreadScreen({ subreddit, postId }: ThreadScreenProps): React.Re
 
   return (
     <Box flexDirection="column">
-      <Text color="blue" bold>
-        {post.title}
-      </Text>
-      {post.hasImage ? <ImageTag /> : null}
-      <Text dimColor>{`r/${post.subreddit} · u/${post.author} · ${post.score} pts`}</Text>
-      {post.selftext.length > 0 ? <Text>{post.selftext}</Text> : null}
-      <Box marginTop={1}>
-        <Text bold>Comments</Text>
+      <Box flexDirection="column">
+        <Text color="blue" bold>
+          {post.title}
+        </Text>
+        {post.hasImage ? <ImageTag /> : null}
+        <Text dimColor>{`r/${post.subreddit} · u/${post.author} · ${post.score} pts`}</Text>
+        {post.selftext.length > 0 ? <Text>{post.selftext}</Text> : null}
+        <Box marginTop={1}>
+          <Text bold>Comments</Text>
+        </Box>
+        {expandFailed ? <Text color="red">{EXPAND_FAILED_TEXT}</Text> : null}
       </Box>
-      {expandFailed ? <Text color="red">Failed to load replies. Press Enter to retry.</Text> : null}
-      <CommentTree comments={comments} onExpandMore={handleExpandMore} />
+      <CommentTree comments={comments} onExpandMore={handleExpandMore} availableHeight={availableHeight} />
     </Box>
   );
 }

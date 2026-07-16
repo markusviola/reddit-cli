@@ -3,8 +3,13 @@ import React, { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
 import { useNav } from '../nav/stack';
 import { SubredditList } from '../components/SubredditList';
+import { useAvailableHeight } from '../hooks/useAvailableHeight';
+import { estimateWrappedLines } from '../rendering/textMetrics';
 import { getJoinedSubreddits } from '../reddit/client';
 import type { RedditSubreddit } from '../reddit/types';
+
+const TITLE_TEXT = 'Joined Subreddits';
+const FAILED_TO_LOAD_TEXT = 'Failed to load. Press Backspace and try again.';
 
 export function JoinedSubredditsScreen(): React.ReactElement {
   const { push } = useNav();
@@ -45,10 +50,17 @@ export function JoinedSubredditsScreen(): React.ReactElement {
     void run();
   };
 
+  const { availableHeight } = useAvailableHeight(
+    (columns) =>
+      estimateWrappedLines(TITLE_TEXT, columns) + (status === 'error' ? estimateWrappedLines(FAILED_TO_LOAD_TEXT, columns) : 0)
+  );
+
   return (
     <Box flexDirection="column">
-      <Text bold>Joined Subreddits</Text>
-      {status === 'error' ? <Text color="red">Failed to load. Press Backspace and try again.</Text> : null}
+      <Box flexDirection="column">
+        <Text bold>{TITLE_TEXT}</Text>
+        {status === 'error' ? <Text color="red">{FAILED_TO_LOAD_TEXT}</Text> : null}
+      </Box>
       {status === 'loading' ? (
         <Text>Loading...</Text>
       ) : (
@@ -57,6 +69,7 @@ export function JoinedSubredditsScreen(): React.ReactElement {
           onSelect={(subreddit) => push({ screen: 'Feed', subreddit: subreddit.name })}
           onReachEnd={loadMore}
           emptyMessage="You haven't joined any subreddits."
+          availableHeight={availableHeight}
         />
       )}
     </Box>

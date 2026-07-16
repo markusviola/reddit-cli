@@ -3,9 +3,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useNav } from '../nav/stack';
 import { PostList } from '../components/PostList';
+import { useAvailableHeight } from '../hooks/useAvailableHeight';
+import { estimateWrappedLines } from '../rendering/textMetrics';
 import { getHomeFeed, getSubredditFeed } from '../reddit/client';
 import type { FeedSort } from '../reddit/client';
 import type { RedditPost } from '../reddit/types';
+
+const FAILED_TO_LOAD_TEXT = 'Failed to load. Press Backspace and try again.';
 
 const SORTS: FeedSort[] = ['hot', 'top', 'new', 'controversial'];
 
@@ -74,12 +78,18 @@ export function FeedScreen({ subreddit }: FeedScreenProps): React.ReactElement {
     void run();
   };
 
+  const titleText = `${subreddit === null ? 'Home Feed' : `r/${subreddit}`} — sort: ${sort} (press s to cycle)`;
+  const { availableHeight } = useAvailableHeight(
+    (columns) =>
+      estimateWrappedLines(titleText, columns) + (status === 'error' ? estimateWrappedLines(FAILED_TO_LOAD_TEXT, columns) : 0)
+  );
+
   return (
     <Box flexDirection="column">
-      <Text bold>
-        {subreddit === null ? 'Home Feed' : `r/${subreddit}`} — sort: {sort} (press s to cycle)
-      </Text>
-      {status === 'error' ? <Text color="red">Failed to load. Press Backspace and try again.</Text> : null}
+      <Box flexDirection="column">
+        <Text bold>{titleText}</Text>
+        {status === 'error' ? <Text color="red">{FAILED_TO_LOAD_TEXT}</Text> : null}
+      </Box>
       {status === 'loading' ? (
         <Text>Loading...</Text>
       ) : (
@@ -88,6 +98,7 @@ export function FeedScreen({ subreddit }: FeedScreenProps): React.ReactElement {
           onSelect={(post) => push({ screen: 'Thread', subreddit: post.subreddit, postId: post.id })}
           onReachEnd={loadMore}
           emptyMessage="No posts found."
+          availableHeight={availableHeight}
         />
       )}
     </Box>

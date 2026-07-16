@@ -1,21 +1,36 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useWindowSize } from 'ink';
 import { flattenVisibleComments, nearestAnchorId } from '../comments/flatten';
 import { branchPrefix, continuationPrefix } from '../comments/render';
 import { usernameColor } from '../colors';
 import { useListNav } from '../hooks/useListNav';
 import { RowText } from './RowText';
+import { computeVisibleWindowWithIndicators } from '../hooks/windowing';
+import { estimateWrappedLines } from '../rendering/textMetrics';
 import type { CommentRow } from '../comments/flatten';
 import type { RedditThing } from '../reddit/types';
 
 export type CommentTreeProps = {
   comments: RedditThing[];
   onExpandMore: (row: CommentRow) => void;
+  availableHeight: number;
 };
 
-export function CommentTree({ comments, onExpandMore }: CommentTreeProps): React.ReactElement {
+function estimateRowHeight(row: CommentRow, columns: number): number {
+  if (row.content.type === 'collapsedReplies' || row.content.type === 'more') {
+    return 1;
+  }
+  const prefixWidth = branchPrefix(row).length;
+  const bodyWidth = Math.max(1, columns - prefixWidth);
+  const bodyLines = estimateWrappedLines(row.content.body, bodyWidth);
+  const margin = row.depth === 0 ? 1 : 0;
+  return 1 + bodyLines + margin;
+}
+
+export function CommentTree({ comments, onExpandMore, availableHeight }: CommentTreeProps): React.ReactElement {
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
   const rows = flattenVisibleComments(comments, expandedIds);
+  const { columns } = useWindowSize();
 
   const { selectedIndex, setSelectedIndex } = useListNav<CommentRow>({
     items: rows,
@@ -54,11 +69,22 @@ export function CommentTree({ comments, onExpandMore }: CommentTreeProps): React
     return <Text>No comments yet.</Text>;
   }
 
+  const itemHeights = rows.map((row) => estimateRowHeight(row, columns));
+  const { start, end, hasAbove, hasBelow } = computeVisibleWindowWithIndicators(
+    rows.length,
+    selectedIndex,
+    itemHeights,
+    availableHeight
+  );
+
   return (
     <Box flexDirection="column">
-      {rows.map((row, index) => (
-        <CommentRowView key={row.id} row={row} selected={index === selectedIndex} />
-      ))}
+      {hasAbove ? <Text dimColor>{`↑ ${start} more above`}</Text> : null}
+      {rows.slice(start, end).map((row, offset) => {
+        const index = start + offset;
+        return <CommentRowView key={row.id} row={row} selected={index === selectedIndex} />;
+      })}
+      {hasBelow ? <Text dimColor>{`↓ ${rows.length - end} more below`}</Text> : null}
     </Box>
   );
 }
@@ -84,7 +110,7 @@ function CommentRowView({ row, selected }: { row: CommentRow; selected: boolean 
         <Text color={authorColor} bold={selected}>
           {`u/${row.content.author}`}
         </Text>
-        <RowText selected={selected}>{` (${row.content.score})`}</RowText>
+        <RowText selected={selected}>{` (${row.content.score} pts)`}</RowText>
       </Box>
       <RowText selected={selected}>
         {bodyPrefix}
