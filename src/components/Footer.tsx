@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { estimateWrappedLines } from '../rendering/textMetrics';
+import { IMAGE_TAG_COLOR } from './ImageTag';
 
 const FOOTER_TEXT = 'Home Threads (h) | Global Search (g) | Search Subreddits (s) | Joined Subreddits (j)';
 
@@ -15,8 +16,8 @@ export function computeFooterHeight(columns: number): number {
 
 export function Footer(): React.ReactElement {
   return (
-    <Box borderStyle="single" borderColor="#014D4D" width="100%">
-      <Text>{FOOTER_TEXT}</Text>
+    <Box borderStyle="single" borderColor={IMAGE_TAG_COLOR} width="100%">
+      <Text color={IMAGE_TAG_COLOR}>{FOOTER_TEXT}</Text>
     </Box>
   );
 }

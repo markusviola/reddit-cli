@@ -1,6 +1,6 @@
 // src/App.tsx
 import React from 'react';
-import { Box } from 'ink';
+import { Box, useWindowSize } from 'ink';
 import { NavProvider, useNav } from './nav/stack';
 import { Footer } from './components/Footer';
 import { FeedScreen } from './screens/FeedScreen';
@@ -12,11 +12,20 @@ import { ThreadScreen } from './screens/ThreadScreen';
 export function App(): React.ReactElement {
   return (
     <NavProvider>
-      <Box flexDirection="column">
-        <ScreenSwitch />
-        <Footer />
-      </Box>
+      <AppLayout />
     </NavProvider>
+  );
+}
+
+function AppLayout(): React.ReactElement {
+  const { rows } = useWindowSize();
+  return (
+    <Box flexDirection="column" height={rows}>
+      <Box flexGrow={1}>
+        <ScreenSwitch />
+      </Box>
+      <Footer />
+    </Box>
   );
 }
 
