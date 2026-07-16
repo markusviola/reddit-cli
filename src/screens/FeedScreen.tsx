@@ -13,6 +13,9 @@ const FAILED_TO_LOAD_TEXT = 'Failed to load. Press Backspace and try again.';
 
 const SORTS: FeedSort[] = ['hot', 'top', 'new', 'controversial'];
 
+/** Blank line separating the header from the content below it. */
+const HEADER_GAP_LINES = 1;
+
 export type FeedScreenProps = {
   subreddit: string | null;
 };
@@ -81,12 +84,14 @@ export function FeedScreen({ subreddit }: FeedScreenProps): React.ReactElement {
   const titleText = `${subreddit === null ? 'Home Feed' : `r/${subreddit}`} — sort: ${sort} (press s to cycle)`;
   const { availableHeight } = useAvailableHeight(
     (columns) =>
-      estimateWrappedLines(titleText, columns) + (status === 'error' ? estimateWrappedLines(FAILED_TO_LOAD_TEXT, columns) : 0)
+      estimateWrappedLines(titleText, columns) +
+      (status === 'error' ? estimateWrappedLines(FAILED_TO_LOAD_TEXT, columns) : 0) +
+      HEADER_GAP_LINES
   );
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="column">
+      <Box marginBottom={1} flexDirection="column">
         <Text bold>{titleText}</Text>
         {status === 'error' ? <Text color="red">{FAILED_TO_LOAD_TEXT}</Text> : null}
       </Box>

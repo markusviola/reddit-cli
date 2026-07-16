@@ -11,6 +11,9 @@ import type { RedditSubreddit } from '../reddit/types';
 const TITLE_TEXT = 'Joined Subreddits';
 const FAILED_TO_LOAD_TEXT = 'Failed to load. Press Backspace and try again.';
 
+/** Blank line separating the header from the content below it. */
+const HEADER_GAP_LINES = 1;
+
 export function JoinedSubredditsScreen(): React.ReactElement {
   const { push } = useNav();
   const [subreddits, setSubreddits] = useState<RedditSubreddit[]>([]);
@@ -52,12 +55,14 @@ export function JoinedSubredditsScreen(): React.ReactElement {
 
   const { availableHeight } = useAvailableHeight(
     (columns) =>
-      estimateWrappedLines(TITLE_TEXT, columns) + (status === 'error' ? estimateWrappedLines(FAILED_TO_LOAD_TEXT, columns) : 0)
+      estimateWrappedLines(TITLE_TEXT, columns) +
+      (status === 'error' ? estimateWrappedLines(FAILED_TO_LOAD_TEXT, columns) : 0) +
+      HEADER_GAP_LINES
   );
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="column">
+      <Box marginBottom={1} flexDirection="column">
         <Text bold>{TITLE_TEXT}</Text>
         {status === 'error' ? <Text color="red">{FAILED_TO_LOAD_TEXT}</Text> : null}
       </Box>

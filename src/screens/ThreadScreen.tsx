@@ -11,6 +11,9 @@ import type { CommentRow } from '../comments/flatten';
 
 const EXPAND_FAILED_TEXT = 'Failed to load replies. Press Enter to retry.';
 
+/** Blank line separating the header from the content below it. */
+const HEADER_GAP_LINES = 1;
+
 export type ThreadScreenProps = {
   subreddit: string;
   postId: string;
@@ -74,7 +77,7 @@ export function ThreadScreen({ subreddit, postId }: ThreadScreenProps): React.Re
     const imageLines = post.hasImage ? 1 : 0;
     const metaLines = estimateWrappedLines(`r/${post.subreddit} · u/${post.author} · ${post.score} pts`, columns);
     const expandFailedLines = expandFailed ? estimateWrappedLines(EXPAND_FAILED_TEXT, columns) : 0;
-    return titleLines + imageLines + metaLines + expandFailedLines;
+    return titleLines + imageLines + metaLines + expandFailedLines + HEADER_GAP_LINES;
   });
 
   if (status === 'loading') return <Text>Loading...</Text>;
@@ -84,7 +87,7 @@ export function ThreadScreen({ subreddit, postId }: ThreadScreenProps): React.Re
 
   return (
     <Box flexDirection="column">
-      <Box flexDirection="column">
+      <Box marginBottom={1} flexDirection="column">
         <Text color="blue" bold>
           {post.title}
         </Text>
