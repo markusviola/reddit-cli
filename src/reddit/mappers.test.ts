@@ -46,6 +46,24 @@ test('mapPost detects an image post via preview.images', () => {
   assert.equal(post.hasImage, true);
 });
 
+test('mapPost detects a self-text post with an inline embedded image via media_metadata', () => {
+  const post = mapPost({
+    kind: 't3',
+    data: {
+      id: 'x',
+      is_self: true,
+      selftext: 'some text https://preview.redd.it/abc123.jpg',
+      media_metadata: { abc123: { status: 'valid', e: 'Image', m: 'image/jpg' } },
+    },
+  });
+  assert.equal(post.hasImage, true);
+});
+
+test('mapPost reports no image when media_metadata is an empty object', () => {
+  const post = mapPost({ kind: 't3', data: { id: 'x', media_metadata: {} } });
+  assert.equal(post.hasImage, false);
+});
+
 test('mapComment maps a plain comment with no replies', () => {
   const thing = mapComment({
     kind: 't1',

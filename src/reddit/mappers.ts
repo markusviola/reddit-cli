@@ -23,7 +23,8 @@ export function mapPost(raw: unknown): RedditPost {
 function postHasImage(data: Record<string, unknown>): boolean {
   if (asString(data.post_hint) === 'image') return true;
   if (asBoolean(data.is_gallery)) return true;
-  return Array.isArray(asRecord(data.preview).images);
+  if (Array.isArray(asRecord(data.preview).images)) return true;
+  return Object.keys(asRecord(data.media_metadata)).length > 0;
 }
 
 export function mapComment(raw: unknown): RedditThing {
