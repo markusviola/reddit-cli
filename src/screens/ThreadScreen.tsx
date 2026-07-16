@@ -73,10 +73,8 @@ export function ThreadScreen({ subreddit, postId }: ThreadScreenProps): React.Re
     const titleLines = estimateWrappedLines(post.title, columns);
     const imageLines = post.hasImage ? 1 : 0;
     const metaLines = estimateWrappedLines(`r/${post.subreddit} · u/${post.author} · ${post.score} pts`, columns);
-    const selftextLines = post.selftext.length > 0 ? estimateWrappedLines(post.selftext, columns) : 0;
-    const commentsHeadingLines = 2;
     const expandFailedLines = expandFailed ? estimateWrappedLines(EXPAND_FAILED_TEXT, columns) : 0;
-    return titleLines + imageLines + metaLines + selftextLines + commentsHeadingLines + expandFailedLines;
+    return titleLines + imageLines + metaLines + expandFailedLines;
   });
 
   if (status === 'loading') return <Text>Loading...</Text>;
@@ -92,13 +90,14 @@ export function ThreadScreen({ subreddit, postId }: ThreadScreenProps): React.Re
         </Text>
         {post.hasImage ? <ImageTag /> : null}
         <Text dimColor>{`r/${post.subreddit} · u/${post.author} · ${post.score} pts`}</Text>
-        {post.selftext.length > 0 ? <Text>{post.selftext}</Text> : null}
-        <Box marginTop={1}>
-          <Text bold>Comments</Text>
-        </Box>
         {expandFailed ? <Text color="red">{EXPAND_FAILED_TEXT}</Text> : null}
       </Box>
-      <CommentTree comments={comments} onExpandMore={handleExpandMore} availableHeight={availableHeight} />
+      <CommentTree
+        postBody={post.selftext}
+        comments={comments}
+        onExpandMore={handleExpandMore}
+        availableHeight={availableHeight}
+      />
     </Box>
   );
 }

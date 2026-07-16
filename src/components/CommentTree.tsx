@@ -7,16 +7,29 @@ import { useListNav } from '../hooks/useListNav';
 import { RowText } from './RowText';
 import { useVisibleWindow } from '../hooks/useVisibleWindow';
 import { estimateWrappedLines } from '../rendering/textMetrics';
+import { chunkText } from '../rendering/postChunks';
 import type { CommentRow } from '../comments/flatten';
 import type { RedditThing } from '../reddit/types';
 
 export type CommentTreeProps = {
+  postBody: string;
   comments: RedditThing[];
   onExpandMore: (row: CommentRow) => void;
   availableHeight: number;
 };
 
-function estimateRowHeight(row: CommentRow, columns: number): number {
+// Long post bodies used to render as an unbounded fixed header above
+// the comment tree, pushing the whole viewport past the post itself.
+// Chunking the post body into rows in the same scrollable/selectable
+// list as the comments keeps the top of the post reachable by
+// scrolling sticky selection like everything else.
+const POST_CHUNK_MAX_LINES = 8;
+
+type TreeRow =
+  | { kind: 'text'; id: string; text: string; dim: boolean; bold: boolean }
+  | { kind: 'comment'; id: string; row: CommentRow };
+
+function estimateCommentHeight(row: CommentRow, columns: number): number {
   if (row.content.type === 'collapsedReplies' || row.content.type === 'more') {
     return 1;
   }
@@ -27,14 +40,34 @@ function estimateRowHeight(row: CommentRow, columns: number): number {
   return 1 + bodyLines + margin;
 }
 
-export function CommentTree({ comments, onExpandMore, availableHeight }: CommentTreeProps): React.ReactElement {
-  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
-  const rows = flattenVisibleComments(comments, expandedIds);
-  const { columns } = useWindowSize();
+function estimateRowHeight(row: TreeRow, columns: number): number {
+  return row.kind === 'text' ? estimateWrappedLines(row.text, columns) + 1 : estimateCommentHeight(row.row, columns);
+}
 
-  const { selectedIndex, setSelectedIndex } = useListNav<CommentRow>({
+export function CommentTree({ postBody, comments, onExpandMore, availableHeight }: CommentTreeProps): React.ReactElement {
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
+  const { columns } = useWindowSize();
+  const commentRows = flattenVisibleComments(comments, expandedIds);
+
+  const leadingRows: TreeRow[] = chunkText(postBody, columns, POST_CHUNK_MAX_LINES).map((text, index) => ({
+    kind: 'text',
+    id: `post:${index}`,
+    text,
+    dim: false,
+    bold: false,
+  }));
+  leadingRows.push({ kind: 'text', id: 'comments-heading', text: 'Comments', dim: false, bold: true });
+  if (commentRows.length === 0) {
+    leadingRows.push({ kind: 'text', id: 'no-comments', text: 'No comments yet.', dim: true, bold: false });
+  }
+  const leadingCount = leadingRows.length;
+  const rows: TreeRow[] = [...leadingRows, ...commentRows.map((row) => ({ kind: 'comment' as const, id: row.id, row }))];
+
+  const { selectedIndex, setSelectedIndex } = useListNav<TreeRow>({
     items: rows,
-    onActivate: (row) => {
+    onActivate: (item) => {
+      if (item.kind !== 'comment') return;
+      const row = item.row;
       if (row.content.type === 'collapsedReplies') {
         const sourceId = row.id.slice('collapsed:'.length);
         setExpandedIds((previous) => new Set([...previous, sourceId]));
@@ -44,42 +77,67 @@ export function CommentTree({ comments, onExpandMore, availableHeight }: Comment
     },
   });
 
-  const liveRef = useRef({ rows, selectedIndex });
+  const liveRef = useRef({ commentRows, selectedIndex, leadingCount });
   const anchorIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    liveRef.current = { rows, selectedIndex };
+    liveRef.current = { commentRows, selectedIndex, leadingCount };
   });
 
   useEffect(() => {
     const anchorId = anchorIdRef.current;
     if (anchorId === undefined) return;
-    const { rows: currentRows, selectedIndex: currentIndex } = liveRef.current;
-    const matchedIndex = currentRows.findIndex((row) => row.id === anchorId);
-    if (matchedIndex !== -1 && matchedIndex !== currentIndex) {
+    const { commentRows: currentCommentRows, selectedIndex: currentIndex, leadingCount: currentLeadingCount } =
+      liveRef.current;
+    const matchedCommentIndex = currentCommentRows.findIndex((row) => row.id === anchorId);
+    if (matchedCommentIndex === -1) return;
+    const matchedIndex = currentLeadingCount + matchedCommentIndex;
+    if (matchedIndex !== currentIndex) {
       setSelectedIndex(matchedIndex);
     }
   }, [comments, expandedIds, setSelectedIndex]);
 
   useEffect(() => {
-    anchorIdRef.current = nearestAnchorId(rows, selectedIndex);
+    const commentSelectedIndex = selectedIndex - leadingCount;
+    anchorIdRef.current = commentSelectedIndex >= 0 ? nearestAnchorId(commentRows, commentSelectedIndex) : undefined;
   });
 
   const itemHeights = rows.map((row) => estimateRowHeight(row, columns));
   const { start, end, hasAbove, hasBelow } = useVisibleWindow(rows.length, selectedIndex, itemHeights, availableHeight);
-
-  if (rows.length === 0) {
-    return <Text>No comments yet.</Text>;
-  }
 
   return (
     <Box flexDirection="column">
       {hasAbove ? <Text dimColor>{`↑ ${start} more above`}</Text> : null}
       {rows.slice(start, end).map((row, offset) => {
         const index = start + offset;
-        return <CommentRowView key={row.id} row={row} selected={index === selectedIndex} />;
+        const selected = index === selectedIndex;
+        return row.kind === 'text' ? (
+          <TextRowView key={row.id} text={row.text} dim={row.dim} bold={row.bold} selected={selected} />
+        ) : (
+          <CommentRowView key={row.id} row={row.row} selected={selected} />
+        );
       })}
       {hasBelow ? <Text dimColor>{`↓ ${rows.length - end} more below`}</Text> : null}
+    </Box>
+  );
+}
+
+function TextRowView({
+  text,
+  selected,
+  dim,
+  bold,
+}: {
+  text: string;
+  selected: boolean;
+  dim: boolean;
+  bold: boolean;
+}): React.ReactElement {
+  return (
+    <Box marginBottom={1}>
+      <Text bold={selected || bold} dimColor={!selected && dim} {...(selected ? { color: 'green' as const } : {})}>
+        {text}
+      </Text>
     </Box>
   );
 }
