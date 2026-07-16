@@ -13,9 +13,12 @@ const TITLE_TEXT = 'Global Search';
 const SEARCH_FAILED_TEXT = 'Search failed. Press Backspace and try again.';
 
 export function GlobalSearchScreen(): React.ReactElement {
-  const { push } = useNav();
-  const { query, setQuery, submittedQuery, items, status, handleSubmit, handleReachEnd } =
-    useSearchScreen(searchPosts);
+  const { frame, push, updateFrame } = useNav();
+  const initialQuery = frame.screen === 'GlobalSearch' ? (frame.initialQuery ?? '') : '';
+  const { query, setQuery, submittedQuery, items, status, handleSubmit, handleReachEnd } = useSearchScreen(
+    searchPosts,
+    initialQuery
+  );
 
   const { availableHeight } = useAvailableHeight((columns) => {
     const titleLines = estimateWrappedLines(TITLE_TEXT, columns);
@@ -48,7 +51,12 @@ export function GlobalSearchScreen(): React.ReactElement {
       ) : (
         <PostList
           posts={items}
-          onSelect={(post) => push({ screen: 'Thread', subreddit: post.subreddit, postId: post.id })}
+          onSelect={(post) => {
+            updateFrame((current) =>
+              current.screen === 'GlobalSearch' ? { ...current, initialQuery: submittedQuery ?? '' } : current
+            );
+            push({ screen: 'Thread', subreddit: post.subreddit, postId: post.id });
+          }}
           onReachEnd={handleReachEnd}
           emptyMessage="No posts found."
           availableHeight={availableHeight}

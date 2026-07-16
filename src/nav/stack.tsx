@@ -6,15 +6,16 @@ import type { StackAction } from './stackReducer';
 export type Frame =
   | { screen: 'MainMenu' }
   | { screen: 'Feed'; subreddit: string | null }
-  | { screen: 'SubredditSearch' }
+  | { screen: 'SubredditSearch'; initialQuery?: string }
   | { screen: 'JoinedSubreddits' }
-  | { screen: 'GlobalSearch' }
+  | { screen: 'GlobalSearch'; initialQuery?: string }
   | { screen: 'Thread'; subreddit: string; postId: string };
 
 export type NavContextValue = {
   frame: Frame;
   push: (frame: Frame) => void;
   pop: () => void;
+  updateFrame: (updater: (frame: Frame) => Frame) => void;
   setBackspaceConsumed: (consumed: boolean) => void;
 };
 
@@ -50,6 +51,10 @@ export function NavProvider({ children }: { children: React.ReactNode }): React.
 
   const push = useCallback((frame: Frame) => dispatch({ type: 'push', frame }), []);
   const pop = useCallback(() => dispatch({ type: 'pop' }), []);
+  const updateFrame = useCallback(
+    (updater: (frame: Frame) => Frame) => dispatch({ type: 'update', updater }),
+    []
+  );
   const setBackspaceConsumed = useCallback((consumed: boolean) => {
     backspaceConsumedRef.current = consumed;
   }, []);
@@ -61,6 +66,7 @@ export function NavProvider({ children }: { children: React.ReactNode }): React.
     frame: currentFrame,
     push,
     pop,
+    updateFrame,
     setBackspaceConsumed,
   };
 

@@ -14,10 +14,11 @@ export type UseSearchScreenResult<T> = {
 };
 
 export function useSearchScreen<T>(
-  search: (query: string, after: string | null) => Promise<Listing<T>>
+  search: (query: string, after: string | null) => Promise<Listing<T>>,
+  initialQuery = ''
 ): UseSearchScreenResult<T> {
   const { setBackspaceConsumed } = useNav();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null);
   const [items, setItems] = useState<T[]>([]);
   const [after, setAfter] = useState<string | null>(null);

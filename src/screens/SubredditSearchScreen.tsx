@@ -13,9 +13,12 @@ const TITLE_TEXT = 'Search Subreddits';
 const SEARCH_FAILED_TEXT = 'Search failed. Press Backspace and try again.';
 
 export function SubredditSearchScreen(): React.ReactElement {
-  const { push } = useNav();
-  const { query, setQuery, submittedQuery, items, status, handleSubmit, handleReachEnd } =
-    useSearchScreen(searchSubreddits);
+  const { frame, push, updateFrame } = useNav();
+  const initialQuery = frame.screen === 'SubredditSearch' ? (frame.initialQuery ?? '') : '';
+  const { query, setQuery, submittedQuery, items, status, handleSubmit, handleReachEnd } = useSearchScreen(
+    searchSubreddits,
+    initialQuery
+  );
 
   const { availableHeight } = useAvailableHeight((columns) => {
     const titleLines = estimateWrappedLines(TITLE_TEXT, columns);
@@ -48,7 +51,12 @@ export function SubredditSearchScreen(): React.ReactElement {
       ) : (
         <SubredditList
           subreddits={items}
-          onSelect={(subreddit) => push({ screen: 'Feed', subreddit: subreddit.name })}
+          onSelect={(subreddit) => {
+            updateFrame((current) =>
+              current.screen === 'SubredditSearch' ? { ...current, initialQuery: submittedQuery ?? '' } : current
+            );
+            push({ screen: 'Feed', subreddit: subreddit.name });
+          }}
           onReachEnd={handleReachEnd}
           emptyMessage="No subreddits found."
           availableHeight={availableHeight}

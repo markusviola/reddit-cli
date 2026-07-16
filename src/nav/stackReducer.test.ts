@@ -19,3 +19,15 @@ test('pop is a no-op at the root (single frame)', () => {
   const result = stackReducer<TestFrame>(stack, { type: 'pop' });
   assert.deepEqual(result, [{ id: 1 }]);
 });
+
+test('update replaces only the top frame, leaving the rest untouched', () => {
+  const stack = [{ id: 1 }, { id: 2 }];
+  const result = stackReducer<TestFrame>(stack, { type: 'update', updater: (frame) => ({ id: frame.id + 100 }) });
+  assert.deepEqual(result, [{ id: 1 }, { id: 102 }]);
+});
+
+test('update on a single-frame stack replaces that one frame', () => {
+  const stack = [{ id: 1 }];
+  const result = stackReducer<TestFrame>(stack, { type: 'update', updater: (frame) => ({ id: frame.id + 1 }) });
+  assert.deepEqual(result, [{ id: 2 }]);
+});
