@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useInput } from 'ink';
 import { useNav } from '../nav/stack';
+import type { SearchState } from '../nav/stack';
 import type { Listing } from '../reddit/types';
 
 export type SearchFocus = 'query' | 'return';
@@ -10,6 +11,7 @@ export type UseSearchScreenResult<T> = {
   setQuery: (value: string) => void;
   submittedQuery: string | null;
   items: T[];
+  after: string | null;
   status: 'idle' | 'loading' | 'ready' | 'error';
   handleSubmit: (value: string) => void;
   handleReachEnd: () => void;
@@ -18,14 +20,16 @@ export type UseSearchScreenResult<T> = {
 
 export function useSearchScreen<T>(
   search: (query: string, after: string | null) => Promise<Listing<T>>,
-  initialQuery = ''
+  initialState?: SearchState<T>
 ): UseSearchScreenResult<T> {
   const { pop, setBackspaceConsumed } = useNav();
-  const [query, setQuery] = useState(initialQuery);
-  const [submittedQuery, setSubmittedQuery] = useState<string | null>(null);
-  const [items, setItems] = useState<T[]>([]);
-  const [after, setAfter] = useState<string | null>(null);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [query, setQuery] = useState(initialState?.query ?? '');
+  const [submittedQuery, setSubmittedQuery] = useState<string | null>(initialState?.submittedQuery ?? null);
+  const [items, setItems] = useState<T[]>(initialState?.items ?? []);
+  const [after, setAfter] = useState<string | null>(initialState?.after ?? null);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>(
+    initialState?.submittedQuery != null ? 'ready' : 'idle'
+  );
   const [focus, setFocus] = useState<SearchFocus>('query');
   const submittedQueryRef = useRef(submittedQuery);
 
@@ -80,5 +84,5 @@ export function useSearchScreen<T>(
     if (after !== null && submittedQuery !== null) runSearch(submittedQuery, after);
   };
 
-  return { query, setQuery, submittedQuery, items, status, handleSubmit, handleReachEnd, focus };
+  return { query, setQuery, submittedQuery, items, after, status, handleSubmit, handleReachEnd, focus };
 }

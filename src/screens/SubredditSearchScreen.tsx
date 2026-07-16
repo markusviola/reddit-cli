@@ -17,11 +17,9 @@ const RETURN_BUTTON_LINES = 2;
 
 export function SubredditSearchScreen(): React.ReactElement {
   const { frame, push, updateFrame } = useNav();
-  const initialQuery = frame.screen === 'SubredditSearch' ? (frame.initialQuery ?? '') : '';
-  const { query, setQuery, submittedQuery, items, status, handleSubmit, handleReachEnd, focus } = useSearchScreen(
-    searchSubreddits,
-    initialQuery
-  );
+  const initialState = frame.screen === 'SubredditSearch' ? frame.search : undefined;
+  const { query, setQuery, submittedQuery, items, after, status, handleSubmit, handleReachEnd, focus } =
+    useSearchScreen(searchSubreddits, initialState);
 
   const { availableHeight } = useAvailableHeight((columns) => {
     const titleLines = estimateWrappedLines(TITLE_TEXT, columns);
@@ -68,7 +66,9 @@ export function SubredditSearchScreen(): React.ReactElement {
           subreddits={items}
           onSelect={(subreddit) => {
             updateFrame((current) =>
-              current.screen === 'SubredditSearch' ? { ...current, initialQuery: submittedQuery ?? '' } : current
+              current.screen === 'SubredditSearch'
+                ? { ...current, search: { query, submittedQuery, items, after } }
+                : current
             );
             push({ screen: 'Feed', subreddit: subreddit.name });
           }}

@@ -2,13 +2,21 @@ import React, { createContext, useCallback, useContext, useReducer, useRef } fro
 import { useInput, useApp } from 'ink';
 import { stackReducer } from './stackReducer';
 import type { StackAction } from './stackReducer';
+import type { RedditPost, RedditSubreddit } from '../reddit/types';
+
+export type SearchState<T> = {
+  query: string;
+  submittedQuery: string | null;
+  items: T[];
+  after: string | null;
+};
 
 export type Frame =
   | { screen: 'MainMenu' }
   | { screen: 'Feed'; subreddit: string | null }
-  | { screen: 'SubredditSearch'; initialQuery?: string }
+  | { screen: 'SubredditSearch'; search?: SearchState<RedditSubreddit> }
   | { screen: 'JoinedSubreddits' }
-  | { screen: 'GlobalSearch'; initialQuery?: string }
+  | { screen: 'GlobalSearch'; search?: SearchState<RedditPost> }
   | { screen: 'Thread'; subreddit: string; postId: string };
 
 export type NavContextValue = {

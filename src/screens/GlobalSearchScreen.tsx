@@ -17,11 +17,9 @@ const RETURN_BUTTON_LINES = 2;
 
 export function GlobalSearchScreen(): React.ReactElement {
   const { frame, push, updateFrame } = useNav();
-  const initialQuery = frame.screen === 'GlobalSearch' ? (frame.initialQuery ?? '') : '';
-  const { query, setQuery, submittedQuery, items, status, handleSubmit, handleReachEnd, focus } = useSearchScreen(
-    searchPosts,
-    initialQuery
-  );
+  const initialState = frame.screen === 'GlobalSearch' ? frame.search : undefined;
+  const { query, setQuery, submittedQuery, items, after, status, handleSubmit, handleReachEnd, focus } =
+    useSearchScreen(searchPosts, initialState);
 
   const { availableHeight } = useAvailableHeight((columns) => {
     const titleLines = estimateWrappedLines(TITLE_TEXT, columns);
@@ -68,7 +66,7 @@ export function GlobalSearchScreen(): React.ReactElement {
           posts={items}
           onSelect={(post) => {
             updateFrame((current) =>
-              current.screen === 'GlobalSearch' ? { ...current, initialQuery: submittedQuery ?? '' } : current
+              current.screen === 'GlobalSearch' ? { ...current, search: { query, submittedQuery, items, after } } : current
             );
             push({ screen: 'Thread', subreddit: post.subreddit, postId: post.id });
           }}
