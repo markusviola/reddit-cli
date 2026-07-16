@@ -59,7 +59,7 @@ export function FeedScreen({ subreddit }: FeedScreenProps): React.ReactElement {
   }, [subreddit, sort]);
 
   useInput((input) => {
-    if (input === 's') {
+    if (input === 't') {
       setStatus('loading');
       setSortIndex((index) => (index + 1) % SORTS.length);
     }
@@ -81,7 +81,7 @@ export function FeedScreen({ subreddit }: FeedScreenProps): React.ReactElement {
     void run();
   };
 
-  const titleText = `${subreddit === null ? 'Home Feed' : `r/${subreddit}`} — sort: ${sort} (press s to cycle)`;
+  const titleText = `${subreddit === null ? 'Home Feed' : `r/${subreddit}`} — sort: ${sort} (press t to cycle)`;
   const { availableHeight } = useAvailableHeight(
     (columns) =>
       estimateWrappedLines(titleText, columns) +

@@ -31,3 +31,15 @@ test('update on a single-frame stack replaces that one frame', () => {
   const result = stackReducer<TestFrame>(stack, { type: 'update', updater: (frame) => ({ id: frame.id + 1 }) });
   assert.deepEqual(result, [{ id: 2 }]);
 });
+
+test('reset collapses a deep stack down to a single fresh frame', () => {
+  const stack = [{ id: 1 }, { id: 2 }, { id: 3 }];
+  const result = stackReducer<TestFrame>(stack, { type: 'reset', frame: { id: 99 } });
+  assert.deepEqual(result, [{ id: 99 }]);
+});
+
+test('reset on a single-frame stack still replaces it', () => {
+  const stack = [{ id: 1 }];
+  const result = stackReducer<TestFrame>(stack, { type: 'reset', frame: { id: 2 } });
+  assert.deepEqual(result, [{ id: 2 }]);
+});

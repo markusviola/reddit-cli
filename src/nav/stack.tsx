@@ -12,7 +12,6 @@ export type SearchState<T> = {
 };
 
 export type Frame =
-  | { screen: 'MainMenu' }
   | { screen: 'Feed'; subreddit: string | null }
   | { screen: 'SubredditSearch'; search?: SearchState<RedditSubreddit> }
   | { screen: 'JoinedSubreddits' }
@@ -25,11 +24,20 @@ export type NavContextValue = {
   pop: () => void;
   updateFrame: (updater: (frame: Frame) => Frame) => void;
   setBackspaceConsumed: (consumed: boolean) => void;
+  setQueryInputActive: (active: boolean) => void;
 };
 
 const NavContext = createContext<NavContextValue | null>(null);
 
-const ROOT_FRAME: Frame = { screen: 'MainMenu' };
+const ROOT_FRAME: Frame = { screen: 'Feed', subreddit: null };
+
+/** Footer nav-bar keys: reset to a fresh instance of that screen. */
+const FOOTER_FRAMES: Record<string, Frame> = {
+  h: { screen: 'Feed', subreddit: null },
+  g: { screen: 'GlobalSearch' },
+  s: { screen: 'SubredditSearch' },
+  j: { screen: 'JoinedSubreddits' },
+};
 
 export function NavProvider({ children }: { children: React.ReactNode }): React.ReactElement {
   const [stack, dispatch] = useReducer(
@@ -39,6 +47,7 @@ export function NavProvider({ children }: { children: React.ReactNode }): React.
   const { exit } = useApp();
   const lastCtrlCAt = useRef(0);
   const backspaceConsumedRef = useRef(false);
+  const queryInputActiveRef = useRef(false);
 
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
@@ -54,6 +63,13 @@ export function NavProvider({ children }: { children: React.ReactNode }): React.
       if (!backspaceConsumedRef.current) {
         dispatch({ type: 'pop' });
       }
+      return;
+    }
+    if (!queryInputActiveRef.current) {
+      const footerFrame = FOOTER_FRAMES[input];
+      if (footerFrame !== undefined) {
+        dispatch({ type: 'reset', frame: footerFrame });
+      }
     }
   });
 
@@ -66,6 +82,9 @@ export function NavProvider({ children }: { children: React.ReactNode }): React.
   const setBackspaceConsumed = useCallback((consumed: boolean) => {
     backspaceConsumedRef.current = consumed;
   }, []);
+  const setQueryInputActive = useCallback((active: boolean) => {
+    queryInputActiveRef.current = active;
+  }, []);
 
   const currentFrame = stack[stack.length - 1];
   if (currentFrame === undefined) throw new Error('unreachable: stack is never empty');
@@ -76,6 +95,7 @@ export function NavProvider({ children }: { children: React.ReactNode }): React.
     pop,
     updateFrame,
     setBackspaceConsumed,
+    setQueryInputActive,
   };
 
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>;

@@ -1,7 +1,8 @@
 // src/App.tsx
 import React from 'react';
+import { Box } from 'ink';
 import { NavProvider, useNav } from './nav/stack';
-import { MainMenu } from './screens/MainMenu';
+import { Footer } from './components/Footer';
 import { FeedScreen } from './screens/FeedScreen';
 import { SubredditSearchScreen } from './screens/SubredditSearchScreen';
 import { JoinedSubredditsScreen } from './screens/JoinedSubredditsScreen';
@@ -11,7 +12,10 @@ import { ThreadScreen } from './screens/ThreadScreen';
 export function App(): React.ReactElement {
   return (
     <NavProvider>
-      <ScreenSwitch />
+      <Box flexDirection="column">
+        <ScreenSwitch />
+        <Footer />
+      </Box>
     </NavProvider>
   );
 }
@@ -19,8 +23,6 @@ export function App(): React.ReactElement {
 function ScreenSwitch(): React.ReactElement {
   const { frame } = useNav();
   switch (frame.screen) {
-    case 'MainMenu':
-      return <MainMenu />;
     case 'Feed':
       return <FeedScreen key={frame.subreddit ?? ''} subreddit={frame.subreddit} />;
     case 'SubredditSearch':

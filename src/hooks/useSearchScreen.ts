@@ -22,7 +22,7 @@ export function useSearchScreen<T>(
   search: (query: string, after: string | null) => Promise<Listing<T>>,
   initialState?: SearchState<T>
 ): UseSearchScreenResult<T> {
-  const { pop, setBackspaceConsumed } = useNav();
+  const { pop, setBackspaceConsumed, setQueryInputActive } = useNav();
   const [query, setQuery] = useState(initialState?.query ?? '');
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(initialState?.submittedQuery ?? null);
   const [items, setItems] = useState<T[]>(initialState?.items ?? []);
@@ -41,6 +41,11 @@ export function useSearchScreen<T>(
     setBackspaceConsumed(submittedQuery !== null || query.length > 0);
     return () => setBackspaceConsumed(false);
   }, [submittedQuery, query, setBackspaceConsumed]);
+
+  useEffect(() => {
+    setQueryInputActive(submittedQuery === null && focus === 'query');
+    return () => setQueryInputActive(false);
+  }, [submittedQuery, focus, setQueryInputActive]);
 
   useInput((_input, key) => {
     if (key.backspace || key.delete) {
