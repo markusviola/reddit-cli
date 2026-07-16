@@ -3,7 +3,7 @@ import { Box, Text, useWindowSize } from 'ink';
 import { useListNav } from '../hooks/useListNav';
 import { RowText } from './RowText';
 import { useVisibleWindow } from '../hooks/useVisibleWindow';
-import { estimateWrappedLines } from '../rendering/textMetrics';
+import { estimateWrappedLines, truncateToLines } from '../rendering/textMetrics';
 import type { RedditSubreddit } from '../reddit/types';
 
 export type SubredditListProps = {
@@ -45,6 +45,15 @@ export function SubredditList({
     return <Text>{emptyMessage}</Text>;
   }
 
+  const usedHeight = itemHeights.slice(start, end).reduce((sum, height) => sum + height, 0);
+  const indicatorLines = (hasAbove ? 1 : 0) + (hasBelow ? 1 : 0);
+  const remainingSlack = availableHeight - usedHeight - indicatorLines;
+  const nextSubreddit = hasBelow ? subreddits[end] : undefined;
+  const truncatedPreview =
+    nextSubreddit !== undefined && remainingSlack > 0
+      ? truncateToLines(`r/${nextSubreddit.name}`, columns, remainingSlack)
+      : undefined;
+
   return (
     <Box flexDirection="column">
       {hasAbove ? <Text dimColor>{`↑ ${start} more above`}</Text> : null}
@@ -62,6 +71,7 @@ export function SubredditList({
           </Box>
         );
       })}
+      {truncatedPreview !== undefined ? <Text dimColor>{truncatedPreview}</Text> : null}
       {hasBelow ? <Text dimColor>{`↓ ${subreddits.length - end} more below`}</Text> : null}
     </Box>
   );

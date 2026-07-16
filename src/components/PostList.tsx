@@ -4,7 +4,7 @@ import { useListNav } from '../hooks/useListNav';
 import { ImageTag } from './ImageTag';
 import { RowText } from './RowText';
 import { useVisibleWindow } from '../hooks/useVisibleWindow';
-import { estimateWrappedLines } from '../rendering/textMetrics';
+import { estimateWrappedLines, truncateToLines } from '../rendering/textMetrics';
 import type { RedditPost } from '../reddit/types';
 
 export type PostListProps = {
@@ -42,6 +42,13 @@ export function PostList({
     return <Text>{emptyMessage}</Text>;
   }
 
+  const usedHeight = itemHeights.slice(start, end).reduce((sum, height) => sum + height, 0);
+  const indicatorLines = (hasAbove ? 1 : 0) + (hasBelow ? 1 : 0);
+  const remainingSlack = availableHeight - usedHeight - indicatorLines;
+  const nextPost = hasBelow ? posts[end] : undefined;
+  const truncatedPreview =
+    nextPost !== undefined && remainingSlack > 0 ? truncateToLines(nextPost.title, columns, remainingSlack) : undefined;
+
   return (
     <Box flexDirection="column">
       {hasAbove ? <Text dimColor>{`↑ ${start} more above`}</Text> : null}
@@ -60,6 +67,7 @@ export function PostList({
           </Box>
         );
       })}
+      {truncatedPreview !== undefined ? <Text dimColor>{truncatedPreview}</Text> : null}
       {hasBelow ? <Text dimColor>{`↓ ${posts.length - end} more below`}</Text> : null}
     </Box>
   );

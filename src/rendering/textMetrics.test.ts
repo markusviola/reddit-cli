@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estimateWrappedLines } from './textMetrics';
+import { estimateWrappedLines, truncateToLines } from './textMetrics';
 
 test('short text within width is one line', () => {
   assert.equal(estimateWrappedLines('hello', 80), 1);
@@ -56,4 +56,28 @@ test('double-width CJK characters are measured by column, not length', () => {
 // glyph; .length over-counts it, hard-breaking wrongly.
 test('a multi-codepoint emoji sequence is measured by display width', () => {
   assert.equal(estimateWrappedLines('👨‍👩‍👧‍👦', 5), 1);
+});
+
+test('text that already fits within the line limit is returned unchanged', () => {
+  assert.equal(truncateToLines('short text', 80, 3), 'short text');
+});
+
+test('text past the line limit is cut down and gets a trailing ellipsis', () => {
+  const words = Array.from({ length: 20 }, (_, index) => `word${index}`);
+  const result = truncateToLines(words.join(' '), 20, 1);
+  assert.ok(result.endsWith('…'));
+  assert.ok(estimateWrappedLines(result, 20) <= 1, 'the truncated result (with ellipsis) must itself fit the limit');
+});
+
+test('the truncated result is a prefix of the original words, never reordered or cut mid-word', () => {
+  const words = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel'];
+  const result = truncateToLines(words.join(' '), 20, 1);
+  const kept = result.slice(0, -1).trim();
+  const keptWords = kept.length === 0 ? [] : kept.split(' ');
+  assert.deepEqual(keptWords, words.slice(0, keptWords.length));
+});
+
+test('a single word too long to fit even with the ellipsis still returns just the ellipsis', () => {
+  const result = truncateToLines('supercalifragilisticexpialidocious', 10, 1);
+  assert.equal(result, '…');
 });

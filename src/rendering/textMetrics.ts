@@ -8,6 +8,23 @@ export function estimateWrappedLines(text: string, width: number): number {
 
 // Greedy word-wrap matching wrap-ansi(hard:true): wraps at
 // spaces, hard-breaks an overlong word by column width.
+// Cuts text down to fit within maxLines when wrapped, appending an
+// ellipsis. Keeps whole words, in order, never reordering or
+// splitting a word — the returned string (ellipsis included) always
+// itself fits within maxLines.
+export function truncateToLines(text: string, width: number, maxLines: number): string {
+  if (estimateWrappedLines(text, width) <= maxLines) return text;
+
+  const words = text.split(' ');
+  let kept = '';
+  for (const word of words) {
+    const candidate = kept.length === 0 ? word : `${kept} ${word}`;
+    if (estimateWrappedLines(`${candidate}…`, width) > maxLines) break;
+    kept = candidate;
+  }
+  return `${kept}…`;
+}
+
 function wrapLineCount(line: string, width: number): number {
   let lines = 1;
   let current = 0;
