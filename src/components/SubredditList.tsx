@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Text, useWindowSize } from 'ink';
 import { useListNav } from '../hooks/useListNav';
 import { RowText } from './RowText';
-import { computeVisibleWindowWithIndicators } from '../hooks/windowing';
+import { useVisibleWindow } from '../hooks/useVisibleWindow';
 import { estimateWrappedLines } from '../rendering/textMetrics';
 import type { RedditSubreddit } from '../reddit/types';
 
@@ -33,18 +33,17 @@ export function SubredditList({
 }: SubredditListProps): React.ReactElement {
   const { selectedIndex } = useListNav({ items: subreddits, onActivate: onSelect, onReachEnd });
   const { columns } = useWindowSize();
-
-  if (subreddits.length === 0) {
-    return <Text>{emptyMessage}</Text>;
-  }
-
   const itemHeights = subreddits.map((subreddit) => estimateSubredditHeight(subreddit, columns));
-  const { start, end, hasAbove, hasBelow } = computeVisibleWindowWithIndicators(
+  const { start, end, hasAbove, hasBelow } = useVisibleWindow(
     subreddits.length,
     selectedIndex,
     itemHeights,
     availableHeight
   );
+
+  if (subreddits.length === 0) {
+    return <Text>{emptyMessage}</Text>;
+  }
 
   return (
     <Box flexDirection="column">

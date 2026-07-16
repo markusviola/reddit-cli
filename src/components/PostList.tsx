@@ -3,7 +3,7 @@ import { Box, Text, useWindowSize } from 'ink';
 import { useListNav } from '../hooks/useListNav';
 import { ImageTag } from './ImageTag';
 import { RowText } from './RowText';
-import { computeVisibleWindowWithIndicators } from '../hooks/windowing';
+import { useVisibleWindow } from '../hooks/useVisibleWindow';
 import { estimateWrappedLines } from '../rendering/textMetrics';
 import type { RedditPost } from '../reddit/types';
 
@@ -35,18 +35,12 @@ export function PostList({
 }: PostListProps): React.ReactElement {
   const { selectedIndex } = useListNav({ items: posts, onActivate: onSelect, onReachEnd });
   const { columns } = useWindowSize();
+  const itemHeights = posts.map((post) => estimatePostHeight(post, columns));
+  const { start, end, hasAbove, hasBelow } = useVisibleWindow(posts.length, selectedIndex, itemHeights, availableHeight);
 
   if (posts.length === 0) {
     return <Text>{emptyMessage}</Text>;
   }
-
-  const itemHeights = posts.map((post) => estimatePostHeight(post, columns));
-  const { start, end, hasAbove, hasBelow } = computeVisibleWindowWithIndicators(
-    posts.length,
-    selectedIndex,
-    itemHeights,
-    availableHeight
-  );
 
   return (
     <Box flexDirection="column">

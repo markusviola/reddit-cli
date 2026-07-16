@@ -13,7 +13,7 @@ function main(): void {
     process.exitCode = 1;
     return;
   }
-  render(<App />, { exitOnCtrlC: false });
+  render(<App />, { exitOnCtrlC: false, alternateScreen: true });
 }
 
 main();

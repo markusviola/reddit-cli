@@ -5,7 +5,7 @@ import { branchPrefix, continuationPrefix } from '../comments/render';
 import { usernameColor } from '../colors';
 import { useListNav } from '../hooks/useListNav';
 import { RowText } from './RowText';
-import { computeVisibleWindowWithIndicators } from '../hooks/windowing';
+import { useVisibleWindow } from '../hooks/useVisibleWindow';
 import { estimateWrappedLines } from '../rendering/textMetrics';
 import type { CommentRow } from '../comments/flatten';
 import type { RedditThing } from '../reddit/types';
@@ -65,17 +65,12 @@ export function CommentTree({ comments, onExpandMore, availableHeight }: Comment
     anchorIdRef.current = nearestAnchorId(rows, selectedIndex);
   });
 
+  const itemHeights = rows.map((row) => estimateRowHeight(row, columns));
+  const { start, end, hasAbove, hasBelow } = useVisibleWindow(rows.length, selectedIndex, itemHeights, availableHeight);
+
   if (rows.length === 0) {
     return <Text>No comments yet.</Text>;
   }
-
-  const itemHeights = rows.map((row) => estimateRowHeight(row, columns));
-  const { start, end, hasAbove, hasBelow } = computeVisibleWindowWithIndicators(
-    rows.length,
-    selectedIndex,
-    itemHeights,
-    availableHeight
-  );
 
   return (
     <Box flexDirection="column">
