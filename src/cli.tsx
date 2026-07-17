@@ -2,6 +2,7 @@
 // src/cli.tsx
 import { render } from 'ink';
 import { loadToken } from './token';
+import { detectChafa } from './images/chafa';
 import { App } from './App';
 
 function main(): void {
@@ -13,6 +14,7 @@ function main(): void {
     process.exitCode = 1;
     return;
   }
+  void detectChafa();
   render(<App />, { exitOnCtrlC: false, alternateScreen: true });
 }
 

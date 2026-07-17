@@ -1,7 +1,7 @@
-import type { RedditThing } from '../reddit/types';
+import type { RedditThing, BodySegment } from '../reddit/types';
 
 export type CommentRowContent =
-  | { type: 'comment'; author: string; body: string; score: number; continuesBelow: boolean }
+  | { type: 'comment'; author: string; body: string; bodySegments: BodySegment[]; score: number; continuesBelow: boolean }
   | { type: 'collapsedReplies'; replyCount: number }
   | { type: 'more'; count: number; childIds: string[] };
 
@@ -59,6 +59,7 @@ function walk(
         type: 'comment',
         author: thing.author,
         body: thing.body,
+        bodySegments: thing.bodySegments ?? [{ kind: 'text', text: thing.body }],
         score: thing.score,
         continuesBelow: thing.replies.length > 0,
       },

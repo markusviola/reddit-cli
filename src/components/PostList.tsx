@@ -3,9 +3,10 @@ import { Box, Text, useWindowSize } from 'ink';
 import { useListNav } from '../hooks/useListNav';
 import { ImageTag } from './ImageTag';
 import { RowText } from './RowText';
+import { useImageViewer } from '../hooks/useImageViewer';
 import { useVisibleWindow } from '../hooks/useVisibleWindow';
-import { estimateWrappedLines, truncateToLines } from '../rendering/textMetrics';
-import type { RedditPost } from '../reddit/types';
+import { estimateWrappedLines } from '../rendering/textMetrics';
+import type { RedditPost, ImageAttachment } from '../reddit/types';
 
 export type PostListProps = {
   posts: RedditPost[];
@@ -15,90 +16,88 @@ export type PostListProps = {
   availableHeight: number;
 };
 
-type PostPreview = {
-  title: string;
-  showImage: boolean;
-  meta: string | undefined;
-};
+type PostRow =
+  | { kind: 'post'; id: string; post: RedditPost }
+  | { kind: 'image'; id: string; attachment: ImageAttachment };
 
 function metaText(post: RedditPost): string {
   return `r/${post.subreddit} · u/${post.author} · ${post.score} pts · ${post.numComments} comments`;
 }
 
-function estimatePostHeight(post: RedditPost, columns: number): number {
-  const titleLines = estimateWrappedLines(post.title, columns);
-  const imageLines = post.hasImage ? 1 : 0;
-  const metaLines = estimateWrappedLines(metaText(post), columns);
-  return titleLines + imageLines + metaLines + 1;
+// The single image a list row can open: the post's primary attachment,
+// else its first inline image, else none.
+function listAttachment(post: RedditPost): ImageAttachment | null {
+  if (post.primaryAttachment !== null) return post.primaryAttachment;
+  const inline = post.bodySegments.find((segment) => segment.kind === 'image');
+  return inline?.kind === 'image' ? inline.attachment : null;
 }
 
-// Fills as much of a preview (title, then image, then meta) as fits
-// in the given budget, rather than always truncating to title-only.
-function buildPostPreview(post: RedditPost, columns: number, budget: number): PostPreview | undefined {
-  if (budget <= 0) return undefined;
-  const fullTitleLines = estimateWrappedLines(post.title, columns);
-  if (fullTitleLines > budget) {
-    return { title: truncateToLines(post.title, columns, budget), showImage: false, meta: undefined };
+function buildPostRows(posts: RedditPost[]): PostRow[] {
+  const rows: PostRow[] = [];
+  for (const post of posts) {
+    rows.push({ kind: 'post', id: `post:${post.id}`, post });
+    const attachment = listAttachment(post);
+    if (attachment !== null) rows.push({ kind: 'image', id: `img:${post.id}`, attachment });
   }
-
-  let remaining = budget - fullTitleLines;
-  const showImage = post.hasImage && remaining >= 1;
-  if (showImage) remaining -= 1;
-
-  const fullMeta = metaText(post);
-  const fullMetaLines = estimateWrappedLines(fullMeta, columns);
-  const meta = remaining >= fullMetaLines ? fullMeta : remaining >= 1 ? truncateToLines(fullMeta, columns, remaining) : undefined;
-
-  return { title: post.title, showImage, meta };
+  return rows;
 }
 
-export function PostList({
-  posts,
-  onSelect,
-  onReachEnd,
-  emptyMessage,
-  availableHeight,
-}: PostListProps): React.ReactElement {
-  const { selectedIndex } = useListNav({ items: posts, onActivate: onSelect, onReachEnd });
+function estimateRowHeight(row: PostRow, columns: number): number {
+  if (row.kind === 'post') {
+    const hasImageRow = listAttachment(row.post) !== null;
+    return (
+      estimateWrappedLines(row.post.title, columns) + estimateWrappedLines(metaText(row.post), columns) + (hasImageRow ? 0 : 1)
+    );
+  }
+  return 2;
+}
+
+export function PostList({ posts, onSelect, onReachEnd, emptyMessage, availableHeight }: PostListProps): React.ReactElement {
   const { columns } = useWindowSize();
-  const itemHeights = posts.map((post) => estimatePostHeight(post, columns));
-  const { start, end, hasAbove, hasBelow } = useVisibleWindow(posts.length, selectedIndex, itemHeights, availableHeight);
+  const rows = buildPostRows(posts);
+  const viewer = useImageViewer();
+
+  const { selectedIndex } = useListNav<PostRow>({
+    items: rows,
+    onActivate: (row) => {
+      if (row.kind === 'post') onSelect(row.post);
+      else viewer.openImage(row.attachment);
+    },
+    onReachEnd,
+  });
+
+  const itemHeights = rows.map((row) => estimateRowHeight(row, columns));
+  const { start, end, hasAbove, hasBelow } = useVisibleWindow(rows.length, selectedIndex, itemHeights, availableHeight);
 
   if (posts.length === 0) {
     return <Text>{emptyMessage}</Text>;
   }
 
-  const usedHeight = itemHeights.slice(start, end).reduce((sum, height) => sum + height, 0);
-  const indicatorLines = (hasAbove ? 1 : 0) + (hasBelow ? 1 : 0);
-  const remainingSlack = availableHeight - usedHeight - indicatorLines;
-  const nextPost = hasBelow ? posts[end] : undefined;
-  const preview = nextPost !== undefined ? buildPostPreview(nextPost, columns, remainingSlack) : undefined;
-
   return (
     <Box flexDirection="column">
       {hasAbove ? <Text dimColor>{`↑ ${start} more above`}</Text> : null}
-      {posts.slice(start, end).map((post, offset) => {
+      {rows.slice(start, end).map((row, offset) => {
         const index = start + offset;
         const selected = index === selectedIndex;
+        if (row.kind === 'post') {
+          const hasImageRow = listAttachment(row.post) !== null;
+          return (
+            <Box key={row.id} flexDirection="column" marginBottom={hasImageRow ? 0 : 1}>
+              <Text color={selected ? 'green' : 'blue'} bold={selected}>
+                {row.post.title}
+              </Text>
+              <RowText selected={selected} dim>
+                {metaText(row.post)}
+              </RowText>
+            </Box>
+          );
+        }
         return (
-          <Box key={post.id} flexDirection="column" marginBottom={1}>
-            <Text color={selected ? 'green' : 'blue'} bold={selected}>
-              {post.title}
-            </Text>
-            {post.hasImage ? <ImageTag /> : null}
-            <RowText selected={selected} dim>
-              {metaText(post)}
-            </RowText>
+          <Box key={row.id} marginBottom={1}>
+            <ImageTag attachment={row.attachment} selected={selected} available={viewer.available} />
           </Box>
         );
       })}
-      {preview !== undefined ? (
-        <Box flexDirection="column">
-          <Text dimColor>{preview.title}</Text>
-          {preview.showImage ? <ImageTag /> : null}
-          {preview.meta !== undefined ? <Text dimColor>{preview.meta}</Text> : null}
-        </Box>
-      ) : null}
       {hasBelow ? <Text dimColor>{`↓ ${posts.length - end} more below`}</Text> : null}
     </Box>
   );

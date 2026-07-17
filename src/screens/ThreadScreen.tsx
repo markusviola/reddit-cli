@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
 import { CommentTree } from '../components/CommentTree';
-import { ImageTag } from '../components/ImageTag';
 import { useAvailableHeight } from '../hooks/useAvailableHeight';
 import { estimateWrappedLines } from '../rendering/textMetrics';
 import { getThread, loadMoreChildren } from '../reddit/client';
@@ -74,10 +73,9 @@ export function ThreadScreen({ subreddit, postId }: ThreadScreenProps): React.Re
   const { availableHeight } = useAvailableHeight((columns) => {
     if (post === null) return 0;
     const titleLines = estimateWrappedLines(post.title, columns);
-    const imageLines = post.hasImage ? 1 : 0;
     const metaLines = estimateWrappedLines(`r/${post.subreddit} · u/${post.author} · ${post.score} pts`, columns);
     const expandFailedLines = expandFailed ? estimateWrappedLines(EXPAND_FAILED_TEXT, columns) : 0;
-    return titleLines + imageLines + metaLines + expandFailedLines + HEADER_GAP_LINES;
+    return titleLines + metaLines + expandFailedLines + HEADER_GAP_LINES;
   });
 
   if (status === 'loading') return <Text>Loading...</Text>;
@@ -91,12 +89,11 @@ export function ThreadScreen({ subreddit, postId }: ThreadScreenProps): React.Re
         <Text color="blue" bold>
           {post.title}
         </Text>
-        {post.hasImage ? <ImageTag /> : null}
         <Text dimColor>{`r/${post.subreddit} · u/${post.author} · ${post.score} pts`}</Text>
         {expandFailed ? <Text color="red">{EXPAND_FAILED_TEXT}</Text> : null}
       </Box>
       <CommentTree
-        postBody={post.selftext}
+        postSegments={post.bodySegments}
         comments={comments}
         onExpandMore={handleExpandMore}
         availableHeight={availableHeight}

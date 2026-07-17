@@ -3,7 +3,8 @@ import { Box, Text } from 'ink';
 import { estimateWrappedLines } from '../rendering/textMetrics';
 import { IMAGE_TAG_COLOR } from './ImageTag';
 
-const FOOTER_TEXT = 'Home Threads (h) | Global Search (g) | Search Subreddits (s) | Joined Subreddits (j)';
+const FOOTER_TEXT =
+  'Home Threads (h) | Global Search (g) | Search Subreddits (s) | Joined Subreddits (j) | Image: Enter open · ←→ carousel · Backspace close';
 
 const BORDER_ROWS = 2;
 const BORDER_COLUMNS = 2;
