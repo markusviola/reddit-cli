@@ -3,6 +3,23 @@ export type Listing<T> = {
   children: T[];
 };
 
+/** One fetchable image (decoded URL, stable id, pixel size). */
+export type ImageRef = {
+  id: string;
+  url: string;
+  width: number;
+  height: number;
+};
+
+/** A single openable image or an ordered gallery carousel. */
+export type ImageAttachment = {
+  id: string;
+  images: ImageRef[];
+};
+
+/** A post/comment body split into text and inline-image pieces. */
+export type BodySegment = { kind: 'text'; text: string } | { kind: 'image'; attachment: ImageAttachment };
+
 export type RedditPost = {
   id: string;
   subreddit: string;
@@ -14,6 +31,8 @@ export type RedditPost = {
   selftext: string;
   url: string;
   hasImage: boolean;
+  primaryAttachment: ImageAttachment | null;
+  bodySegments: BodySegment[];
 };
 
 export type RedditComment = {
@@ -21,6 +40,7 @@ export type RedditComment = {
   id: string;
   author: string;
   body: string;
+  bodySegments?: BodySegment[];
   score: number;
   createdUtc: number;
   replies: RedditThing[];
