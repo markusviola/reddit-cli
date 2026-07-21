@@ -4,7 +4,7 @@ import { mapListing, mapPost, mapComment, mapSubreddit } from './mappers';
 import type { Listing, RedditPost, RedditThing, RedditSubreddit } from './types';
 
 const BASE_URL = 'https://oauth.reddit.com';
-const USER_AGENT = 'iudex-cli/0.1 (terminal Reddit browser)';
+const USER_AGENT = 'reddit-cli/0.1 (terminal Reddit browser)';
 
 export type FeedSort = 'hot' | 'top' | 'new' | 'controversial';
 

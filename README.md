@@ -1,4 +1,4 @@
-# iudex-cli
+# reddit-cli
 
 A standalone, read-only, keyboard-driven terminal browser for Reddit,
 built with [Ink](https://github.com/vadimdemedes/ink) (React for CLIs).
