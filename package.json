@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "devvit": "0.13.6",
-    "ink": "7.1.0",
+    "ink": "7.1.1",
     "ink-text-input": "6.0.0",
     "react": "19.2.7",
     "sharp": "^0.35.3",
