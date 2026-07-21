@@ -16,7 +16,7 @@ export function computeFooterHeight(columns: number): number {
 
 export function Footer(): React.ReactElement {
   return (
-    <Box borderStyle="single" borderColor={IMAGE_TAG_COLOR} width="100%">
+    <Box borderStyle="single" borderColor={IMAGE_TAG_COLOR} width="100%" justifyContent="center">
       <Text color={IMAGE_TAG_COLOR}>{FOOTER_TEXT}</Text>
     </Box>
   );
