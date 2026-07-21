@@ -94,3 +94,6 @@ empty query.
 - `h` / `g` / `s` / `j` — footer nav bar: jump to Home Threads / Global
   Search / Search Subreddits / Joined Subreddits from anywhere (inert
   while a search query box has focus)
+- Enter (on an image tag) — open that image full-screen
+- ← / → (in the image viewer) — page through a gallery of images
+- Backspace / Delete / Esc (in the image viewer) — close and return
