@@ -19,7 +19,7 @@
     "devvit": "0.13.6",
     "ink": "7.1.0",
     "ink-text-input": "6.0.0",
-    "react": "19.2.7",
+    "react": "19.2.8",
     "sharp": "^0.35.3",
     "string-width": "4.2.3"
   },
