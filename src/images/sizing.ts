@@ -19,17 +19,17 @@ const DEFAULT_CELL_PIXEL_WIDTH = 10;
 const FALLBACK_PIXEL: PixelSize = { width: 16, height: 9 };
 
 // Computes the character-cell rectangle a chafa-rendered image should
-// occupy: target width is half the terminal, never upscaled past the
-// image's native cell width, and shrunk if its height would exceed
-// two thirds of the terminal.
+// occupy: target width is two thirds of the terminal, never upscaled
+// past the image's native cell width, and shrunk if its height would
+// exceed two thirds of the terminal.
 export function computeImageCellSize(image: PixelSize, terminal: TerminalSize, options: SizingOptions = {}): CellSize {
   const cellAspect = options.cellAspect ?? DEFAULT_CELL_ASPECT;
   const cellPixelWidth = options.cellPixelWidth ?? DEFAULT_CELL_PIXEL_WIDTH;
   const pixels = image.width > 0 && image.height > 0 ? image : FALLBACK_PIXEL;
 
-  const halfWidth = Math.max(1, Math.floor(terminal.columns / 2));
+  const targetWidth = Math.max(1, Math.floor((terminal.columns * 2) / 3));
   const nativeCols = Math.max(1, Math.round(pixels.width / cellPixelWidth));
-  let cols = Math.min(nativeCols, halfWidth);
+  let cols = Math.min(nativeCols, targetWidth);
   let rows = rowsForCols(cols, pixels, cellAspect);
 
   const maxRows = Math.max(1, Math.floor((terminal.rows * 2) / 3));
