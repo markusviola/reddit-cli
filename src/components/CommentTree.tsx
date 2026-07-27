@@ -10,6 +10,7 @@ import { useImageViewer } from '../hooks/useImageViewer';
 import { useVisibleWindow } from '../hooks/useVisibleWindow';
 import { estimateWrappedLines } from '../rendering/textMetrics';
 import { chunkText } from '../rendering/postChunks';
+import { formatRelativeTime } from '../rendering/relativeTime';
 import type { CommentRow } from '../comments/flatten';
 import type { RedditThing, BodySegment, ImageAttachment } from '../reddit/types';
 
@@ -135,6 +136,7 @@ export function CommentTree({ postSegments, comments, onExpandMore, availableHei
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
   const { columns } = useWindowSize();
   const viewer = useImageViewer();
+  const [nowSeconds] = useState(() => Date.now() / 1000);
   const commentRows = flattenVisibleComments(comments, expandedIds);
   const { rows: commentDisplayRows, sourceIndices } = buildCommentDisplayRows(commentRows, columns);
 
@@ -209,9 +211,11 @@ export function CommentTree({ postSegments, comments, onExpandMore, availableHei
           return <TextRowView key={row.id} text={row.text} dim={row.dim} bold={row.bold} selected={selected} />;
         }
         if (row.kind === 'comment') {
-          return <CommentRowView key={row.id} displayRow={row} selected={selected} />;
+          return <CommentRowView key={row.id} displayRow={row} selected={selected} nowSeconds={nowSeconds} />;
         }
-        return <ImageRowView key={row.id} displayRow={row} selected={selected} available={viewer.available} />;
+        return (
+          <ImageRowView key={row.id} displayRow={row} selected={selected} available={viewer.available} nowSeconds={nowSeconds} />
+        );
       })}
       {hasBelow ? <Text dimColor>{`↓ ${rows.length - end} more below`}</Text> : null}
     </Box>
@@ -238,17 +242,26 @@ function TextRowView({
   );
 }
 
-function CommentHeader({ row, selected }: { row: CommentRow; selected: boolean }): React.ReactElement | null {
+function CommentHeader({
+  row,
+  selected,
+  nowSeconds,
+}: {
+  row: CommentRow;
+  selected: boolean;
+  nowSeconds: number;
+}): React.ReactElement | null {
   if (row.content.type !== 'comment') return null;
   const prefix = branchPrefix(row);
   const authorColor = selected ? 'green' : usernameColor(row.content.author);
+  const age = formatRelativeTime(row.content.createdUtc, nowSeconds);
   return (
     <Box>
       <RowText selected={selected}>{prefix}</RowText>
       <Text color={authorColor} bold={selected}>
         {`u/${row.content.author}`}
       </Text>
-      <RowText selected={selected}>{` (${row.content.score} pts)`}</RowText>
+      <RowText selected={selected}>{` · ${row.content.score} pts · ${age}`}</RowText>
     </Box>
   );
 }
@@ -256,9 +269,11 @@ function CommentHeader({ row, selected }: { row: CommentRow; selected: boolean }
 function CommentRowView({
   displayRow,
   selected,
+  nowSeconds,
 }: {
   displayRow: Extract<TreeRow, { kind: 'comment' }>;
   selected: boolean;
+  nowSeconds: number;
 }): React.ReactElement {
   const { row, bodyChunk, isFirstChunk, isLastChunk } = displayRow;
   const prefix = branchPrefix(row);
@@ -276,7 +291,7 @@ function CommentRowView({
 
   return (
     <Box flexDirection="column" marginBottom={marginBottom}>
-      {isFirstChunk ? <CommentHeader row={row} selected={selected} /> : null}
+      {isFirstChunk ? <CommentHeader row={row} selected={selected} nowSeconds={nowSeconds} /> : null}
       <RowText selected={selected}>
         {bodyPrefix}
         {bodyChunk}
@@ -289,10 +304,12 @@ function ImageRowView({
   displayRow,
   selected,
   available,
+  nowSeconds,
 }: {
   displayRow: Extract<TreeRow, { kind: 'image' }>;
   selected: boolean;
   available: boolean;
+  nowSeconds: number;
 }): React.ReactElement {
   const { attachment, row, isFirstChunk, isLastChunk } = displayRow;
   const isComment = row !== null;
@@ -301,7 +318,7 @@ function ImageRowView({
 
   return (
     <Box flexDirection="column" marginBottom={marginBottom}>
-      {isComment && isFirstChunk ? <CommentHeader row={row} selected={selected} /> : null}
+      {isComment && isFirstChunk ? <CommentHeader row={row} selected={selected} nowSeconds={nowSeconds} /> : null}
       {isComment ? (
         <Box>
           <RowText selected={selected}>{continuationPrefix(row, continuesBelow)}</RowText>

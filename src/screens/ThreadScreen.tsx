@@ -4,6 +4,7 @@ import { Box, Text } from 'ink';
 import { CommentTree } from '../components/CommentTree';
 import { useAvailableHeight } from '../hooks/useAvailableHeight';
 import { estimateWrappedLines } from '../rendering/textMetrics';
+import { formatRelativeTime } from '../rendering/relativeTime';
 import { getThread, loadMoreChildren } from '../reddit/client';
 import type { RedditPost, RedditThing } from '../reddit/types';
 import type { CommentRow } from '../comments/flatten';
@@ -17,6 +18,11 @@ export type ThreadScreenProps = {
   subreddit: string;
   postId: string;
 };
+
+function postMetaText(post: RedditPost, nowSeconds: number): string {
+  const age = formatRelativeTime(post.createdUtc, nowSeconds);
+  return `r/${post.subreddit} · u/${post.author} · ${post.score} pts · ${age}`;
+}
 
 function replaceMoreStub(things: RedditThing[], stubId: string, replacement: RedditThing[]): RedditThing[] {
   return things.flatMap((thing) => {
@@ -70,10 +76,12 @@ export function ThreadScreen({ subreddit, postId }: ThreadScreenProps): React.Re
     void run();
   };
 
+  const [nowSeconds] = useState(() => Date.now() / 1000);
+
   const { availableHeight } = useAvailableHeight((columns) => {
     if (post === null) return 0;
     const titleLines = estimateWrappedLines(post.title, columns);
-    const metaLines = estimateWrappedLines(`r/${post.subreddit} · u/${post.author} · ${post.score} pts`, columns);
+    const metaLines = estimateWrappedLines(postMetaText(post, nowSeconds), columns);
     const expandFailedLines = expandFailed ? estimateWrappedLines(EXPAND_FAILED_TEXT, columns) : 0;
     return titleLines + metaLines + expandFailedLines + HEADER_GAP_LINES;
   });
@@ -89,7 +97,7 @@ export function ThreadScreen({ subreddit, postId }: ThreadScreenProps): React.Re
         <Text color="blue" bold>
           {post.title}
         </Text>
-        <Text dimColor>{`r/${post.subreddit} · u/${post.author} · ${post.score} pts`}</Text>
+        <Text dimColor>{postMetaText(post, nowSeconds)}</Text>
         {expandFailed ? <Text color="red">{EXPAND_FAILED_TEXT}</Text> : null}
       </Box>
       <CommentTree

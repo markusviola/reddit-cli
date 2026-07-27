@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, Text, useWindowSize } from 'ink';
 import { useListNav } from '../hooks/useListNav';
 import { ImageTag } from './ImageTag';
@@ -6,6 +6,7 @@ import { RowText } from './RowText';
 import { useImageViewer } from '../hooks/useImageViewer';
 import { useVisibleWindow } from '../hooks/useVisibleWindow';
 import { estimateWrappedLines } from '../rendering/textMetrics';
+import { formatRelativeTime } from '../rendering/relativeTime';
 import type { RedditPost, ImageAttachment } from '../reddit/types';
 
 export type PostListProps = {
@@ -20,8 +21,9 @@ type PostRow =
   | { kind: 'post'; id: string; post: RedditPost }
   | { kind: 'image'; id: string; attachment: ImageAttachment };
 
-function metaText(post: RedditPost): string {
-  return `r/${post.subreddit} · u/${post.author} · ${post.score} pts · ${post.numComments} comments`;
+function metaText(post: RedditPost, nowSeconds: number): string {
+  const age = formatRelativeTime(post.createdUtc, nowSeconds);
+  return `r/${post.subreddit} · u/${post.author} · ${post.score} pts · ${post.numComments} comments · ${age}`;
 }
 
 // The single image a list row can open: the post's primary attachment,
@@ -42,11 +44,13 @@ function buildPostRows(posts: RedditPost[]): PostRow[] {
   return rows;
 }
 
-function estimateRowHeight(row: PostRow, columns: number): number {
+function estimateRowHeight(row: PostRow, columns: number, nowSeconds: number): number {
   if (row.kind === 'post') {
     const hasImageRow = listAttachment(row.post) !== null;
     return (
-      estimateWrappedLines(row.post.title, columns) + estimateWrappedLines(metaText(row.post), columns) + (hasImageRow ? 0 : 1)
+      estimateWrappedLines(row.post.title, columns) +
+      estimateWrappedLines(metaText(row.post, nowSeconds), columns) +
+      (hasImageRow ? 0 : 1)
     );
   }
   return 2;
@@ -56,6 +60,7 @@ export function PostList({ posts, onSelect, onReachEnd, emptyMessage, availableH
   const { columns } = useWindowSize();
   const rows = buildPostRows(posts);
   const viewer = useImageViewer();
+  const [nowSeconds] = useState(() => Date.now() / 1000);
 
   const { selectedIndex } = useListNav<PostRow>({
     items: rows,
@@ -66,7 +71,7 @@ export function PostList({ posts, onSelect, onReachEnd, emptyMessage, availableH
     onReachEnd,
   });
 
-  const itemHeights = rows.map((row) => estimateRowHeight(row, columns));
+  const itemHeights = rows.map((row) => estimateRowHeight(row, columns, nowSeconds));
   const { start, end, hasAbove, hasBelow } = useVisibleWindow(rows.length, selectedIndex, itemHeights, availableHeight);
 
   if (posts.length === 0) {
@@ -87,7 +92,7 @@ export function PostList({ posts, onSelect, onReachEnd, emptyMessage, availableH
                 {row.post.title}
               </Text>
               <RowText selected={selected} dim>
-                {metaText(row.post)}
+                {metaText(row.post, nowSeconds)}
               </RowText>
             </Box>
           );

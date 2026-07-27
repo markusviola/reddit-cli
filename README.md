@@ -53,7 +53,8 @@ From any feed, pressing Enter on a post opens its **Thread** screen: the
 post body (with a `[image 📷]` tag if it has media), then the full
 comment tree below it. Within a comment tree:
 
-- Each comment shows its author and vote count, e.g. `u/someone (42 pts)`.
+- Each comment shows its author, vote count, and relative post age, e.g.
+  `u/someone · 42 pts · 3hr ago`.
 - A `N replies ▸` row is a collapsed set of already-fetched replies —
   Enter expands it in place; Enter again collapses it back.
 - A `N more replies ▸` row is a real Reddit "load more" stub — Enter
